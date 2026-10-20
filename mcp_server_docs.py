@@ -10,7 +10,7 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
-mcp = FastMCP(name="capstone-all-total-docs")
+mcp = FastMCP(name="capstone-all-total-docs", version="1.0.0")
 
 DOC_SECTIONS = {
     "billing": "# 내부 API 문서: billing\n\n결제 관련 엔드포인트와 webhook 재시도 정책을 설명합니다.",
