@@ -4,6 +4,7 @@
 내려간다. 프론트엔드는 HTTP 상태 코드와 error.code만 보고 분기하면 된다.
 
 - 422 validation_error : 요청 스키마 위반
+- 422 not_a_change_request : 4M 변경 요청이 아닌 입력 (검토하지 않음)
 - 404 not_found        : 없는 리소스 (예: 검토 ID)
 - 502 agent_failed     : Agent 실행 중 MCP·LLM 등 외부 의존성 실패
 - 500 internal_error   : 그 밖의 예상하지 못한 오류
@@ -20,6 +21,10 @@ logger = logging.getLogger("app")
 
 class AgentExecutionError(Exception):
     """Agent 실행이 외부 의존성(MCP 서버, LLM API) 문제로 실패했을 때."""
+
+
+class NotAChangeRequest(Exception):
+    """검토 범위 밖 입력 — 4M 변경 요청이 아니라고 판단했을 때."""
 
 
 def _error(request: Request, status: int, code: str, message: str, details=None):
@@ -41,6 +46,10 @@ def install_error_handlers(app: FastAPI) -> None:
     async def _http(request: Request, exc: StarletteHTTPException):
         code = "not_found" if exc.status_code == 404 else f"http_{exc.status_code}"
         return _error(request, exc.status_code, code, str(exc.detail))
+
+    @app.exception_handler(NotAChangeRequest)
+    async def _out_of_scope(request: Request, exc: NotAChangeRequest):
+        return _error(request, 422, "not_a_change_request", str(exc))
 
     @app.exception_handler(AgentExecutionError)
     async def _agent(request: Request, exc: AgentExecutionError):

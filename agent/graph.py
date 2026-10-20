@@ -25,7 +25,7 @@ from langgraph.graph import END, StateGraph
 from .agents import assessor, chat, classifier, judge, planner, research, router, validator
 from .agents import writer as writer_agent
 from .deps import SupervisorDeps
-from .domain_4m import COMMON, EQUIPMENT, LINES
+from .domain_4m import COMMON, EQUIPMENT, LINES, domain_evidence
 
 RESOURCE_KINDS = ("standard", "inspection")
 TOOL_KINDS = ("equipment", "production")
@@ -77,12 +77,27 @@ def _fallback_event(agent: str, reason: str | None) -> list[dict]:
 
 
 async def route_node(state: AgentState, deps: SupervisorDeps) -> dict:
-    """Router Agent (Wave 5). API가 경로를 지정했으면 LLM 호출을 건너뛴다 — 검토 전용
-    엔드포인트가 잡담으로 오분류돼 검토 없이 끝나는 일을 막는다."""
-    if state.get("forced_route") in ("chat", "review"):
-        route = state["forced_route"]
-        return {"route": route,
-                "events": [{"type": "RouteDecided", "route": route, "forced": True}]}
+    """Router Agent (Wave 5).
+
+    검토 전용 엔드포인트(forced_route='review')는 잡담 분기로 보내지 않는다 — 진짜 검토 요청이
+    잡담으로 오분류돼 검토 없이 끝나는 일을 막기 위함. 대신 범위 확인(scope check)을 한다:
+      1) 원문에 4M 근거(공장명·설비·라인 ID·도메인 단어)가 있으면 LLM 없이 검토 진행
+      2) 근거가 없으면 라우터 LLM에 묻고, LLM도 검토 요청이 아니라고 하면 out_of_scope로 끝낸다
+    관련 없는 입력("오늘 점심 뭐 먹지?")에 그럴듯한 검토 보고서를 만들어 저장하지 않기 위함."""
+    if state.get("forced_route") == "chat":
+        return {"route": "chat",
+                "events": [{"type": "RouteDecided", "route": "chat", "forced": True}]}
+    if state.get("forced_route") == "review":
+        evidence = domain_evidence(state["query"])
+        if evidence:
+            return {"route": "review",
+                    "events": [{"type": "RouteDecided", "route": "review", "forced": True,
+                                "evidence": evidence[:5]}]}
+        route, usage, fallback = await router.decide_route(deps.fast_llm, state["query"])
+        decided = "review" if route == "review" else "out_of_scope"
+        return {"route": decided, **_spend(state, usage),
+                "events": [{"type": "RouteDecided", "route": decided, "forced": True,
+                            "evidence": []}] + _fallback_event("router", fallback)}
     route, usage, fallback = await router.decide_route(deps.fast_llm, state["query"])
     return {"route": route, **_spend(state, usage),
             "events": [{"type": "RouteDecided", "route": route}]
@@ -291,8 +306,19 @@ async def finalize_node(state: AgentState, deps: SupervisorDeps) -> dict:
                         "review_status": state.get("review_status")}]}
 
 
+OUT_OF_SCOPE_MESSAGE = (
+    "4M 변경 요청이 아닌 것 같아 검토를 시작하지 않았어요. 어떤 공장에서 무엇(작업자·설비·재료·공법)을 "
+    "어떻게 바꾸는지 적어 주세요. 예: '차체 대시 패널 라인 용접 로봇의 용접 전류 조건을 변경합니다.'")
+
+
+async def out_of_scope_node(state: AgentState, deps: SupervisorDeps) -> dict:
+    """검토 범위 밖 요청 — 보고서를 만들지 않고 안내만 남긴다."""
+    return {"final": OUT_OF_SCOPE_MESSAGE,
+            "events": [{"type": "Finalize", "pipeline": "out-of-scope"}]}
+
+
 def _after_route(state: AgentState) -> str:
-    return "chat_answer" if state["route"] == "chat" else "classify"
+    return {"chat": "chat_answer", "out_of_scope": "out_of_scope"}.get(state["route"], "classify")
 
 
 def _after_replan_check(state: AgentState) -> str:
@@ -307,6 +333,7 @@ def build_graph(deps: SupervisorDeps):
     g = StateGraph(AgentState)
     node = lambda fn: partial(fn, deps=deps)   # Wave 13 — 명시적 의존성 주입
     for name, fn in [("route", route_node), ("chat_answer", chat_answer_node),
+                     ("out_of_scope", out_of_scope_node),
                      ("classify", classify_node), ("plan", plan_node), ("gate", gate_node),
                      ("standards", standards_node), ("field", field_node),
                      ("standards_gap", partial(standards_node, allow_rag=False)),
@@ -317,8 +344,10 @@ def build_graph(deps: SupervisorDeps):
 
     g.set_entry_point("route")
     g.add_conditional_edges("route", _after_route,
-                            {"chat_answer": "chat_answer", "classify": "classify"})
+                            {"chat_answer": "chat_answer", "classify": "classify",
+                             "out_of_scope": "out_of_scope"})
     g.add_edge("chat_answer", END)
+    g.add_edge("out_of_scope", END)
     g.add_edge("classify", "plan")
     g.add_edge("plan", "gate")
     g.add_edge("gate", "standards")      # 두 조사 Agent를 같은 단계에서 병렬 실행

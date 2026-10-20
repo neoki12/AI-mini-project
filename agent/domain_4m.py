@@ -117,6 +117,23 @@ def guess_change_types(query: str) -> list[str]:
     return types or ["Method"]
 
 
+# 4M 변경 요청임을 보여 주는 강한 근거 — 변경 대상(작업자·설비·재료·공법)을 직접 가리키는 단어.
+# '공장', '라인', '검사', 공장명처럼 일반적인 단어나 '변경'·'교체' 같은 동사는 넣지 않는다
+# ("오늘 공장 식당 메뉴가 뭐예요?", "점심 메뉴 변경"도 걸리기 때문). 이런 약한 근거만 있으면
+# 라우터 LLM이 판단한다. '인원'도 제외 ("회식 인원").
+STRONG_TERMS = sorted({"4M", *(w for w in MAN_KEYWORDS if w != "인원"), *MACHINE_NOUNS,
+                       *MATERIAL_KEYWORDS,
+                       *(w for words in SHOP_KEYWORDS.values() for w in words),
+                       "토크", "전류", "온도 프로파일", "용접 조건", "도막", "체결 공구"})
+
+
+def domain_evidence(query: str) -> list[str]:
+    """요청 원문에서 4M 변경 요청이라는 강한 근거(변경 대상 단어, 설비·라인 ID)를 찾는다."""
+    hits = [w for w in STRONG_TERMS if w in query]
+    hits += find_equipment_ids(query) + [line for line in LINES if line in query]
+    return list(dict.fromkeys(hits))
+
+
 def valid_target(kind: str, target: str) -> bool:
     if kind == "standard":
         return target in SHOPS or target == COMMON

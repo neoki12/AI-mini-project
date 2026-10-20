@@ -90,7 +90,7 @@ def test_review_forces_review_route_even_for_ambiguous_text(client):
     route_event = r.json()["events"][0]
     assert route_event["type"] == "RouteDecided"
     assert route_event["route"] == "review" and route_event["forced"] is True
-    assert route_event["message"] == "검토 요청으로 접수했어요"
+    assert route_event["message"].startswith("검토 요청으로 접수했어요")
 
 
 def test_review_get_and_list(client):
@@ -239,3 +239,33 @@ def test_review_detail_events_have_messages(client):
     created = client.post("/api/v1/reviews", json={"message": CASE_08}).json()
     messages = [e.get("message") for e in created["events"]]
     assert messages and all(messages)
+
+
+@pytest.mark.parametrize("message", ["오늘 점심 뭐 먹지?", "안녕하세요 반가워요", "주말에 날씨 어때?",
+                                     "오늘 공장 식당 메뉴가 뭐예요?", "차체 공장 회식 인원 알려줘"])
+def test_unrelated_input_is_not_reviewed(client, message):
+    """검토 엔드포인트라도 4M 변경 요청이 아니면 보고서를 만들지 않고, 이력에 남기지 않는다."""
+    before = client.get("/api/v1/reviews").json()["total"]
+    r = client.post("/api/v1/reviews", json={"message": message})
+    assert r.status_code == 422
+    assert r.json()["error"]["code"] == "not_a_change_request"
+    assert client.get("/api/v1/reviews").json()["total"] == before
+
+
+def test_unrelated_input_in_stream_sends_out_of_scope(client):
+    before = client.get("/api/v1/reviews").json()["total"]
+    events = _sse_events(client.post("/api/v1/reviews/stream",
+                                     json={"message": "오늘 점심 뭐 먹지?"}).text)
+    types = [e["type"] for e in events if isinstance(e, dict)]
+    assert "OutOfScope" in types and "ReviewSaved" not in types
+    assert "classify" not in [e.get("node") for e in events if isinstance(e, dict)]   # 검토 미진행
+    assert events[-1] == "[DONE]"
+    assert client.get("/api/v1/reviews").json()["total"] == before
+
+
+def test_request_with_domain_evidence_skips_router_llm(client):
+    """원문에 4M 근거가 있으면 라우터 LLM 없이 바로 검토한다 (추가 비용 없음)."""
+    r = client.post("/api/v1/reviews", json={"message": "도어 트림 작업자 한 명 늘려요"})
+    route = r.json()["events"][0]
+    assert r.status_code == 201
+    assert route["route"] == "review" and "작업자" in route["evidence"]

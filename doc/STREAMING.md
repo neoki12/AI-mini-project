@@ -60,13 +60,14 @@ data: [DONE]
 | `Finalize` | 마무리 | `pipeline`, `review_status` |
 | `FinalAnswer` | 최종 본문 | `reply`, `prompt` |
 | `ReviewSaved` | 검토 저장 (검토 스트림만) | `id`, `review_status` |
+| `OutOfScope` | 4M 변경 요청이 아니라 검토하지 않음 (검토 스트림만, 저장 안 함) | `code`(not_a_change_request), `message` |
 | `Error` | 실행 실패 | `code`(agent_failed / internal_error), `message`, `request_id` |
 
 ## 순서 보장
 
 - 한 노드의 `NodeStarted`는 그 노드의 결과 이벤트·`NodeFinished`보다 먼저 온다
 - `standards`와 `field`는 병렬로 실행되므로 두 노드의 이벤트는 서로 섞여 올 수 있다
-- `FinalAnswer` → `ReviewSaved` → `[DONE]` 순서로 끝난다. 실패하면 `Error` → `[DONE]`
+- `FinalAnswer` → `ReviewSaved` → `[DONE]` 순서로 끝난다. 범위 밖 요청은 `FinalAnswer` → `OutOfScope` → `[DONE]`, 실패하면 `Error` → `[DONE]`
 
 ## 연결 끊김
 

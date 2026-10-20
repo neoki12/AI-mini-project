@@ -18,6 +18,7 @@ const error = ref<unknown>(null)
 const events = ref<StreamEvent[]>([])
 const draft = ref('')            // Writer Agent가 작성 중인 보고서 (토큰 스트리밍)
 const draftAttempt = ref(0)
+const outOfScope = ref<string | null>(null)   // 4M 변경 요청이 아니라 검토하지 않은 경우
 let timer: ReturnType<typeof setInterval> | undefined
 let controller: AbortController | undefined
 
@@ -28,6 +29,10 @@ function onEvent(e: StreamEvent) {
       draft.value = ''
     }
     draft.value += e.delta ?? ''
+    return
+  }
+  if (e.type === 'OutOfScope') {
+    outOfScope.value = e.message ?? '4M 변경 요청이 아닌 것 같아 검토를 시작하지 않았어요.'
     return
   }
   if (e.type === 'ReviewSaved' && e.id) {
@@ -45,6 +50,7 @@ async function submit() {
   if (!text || pending.value) return
   pending.value = true
   error.value = null
+  outOfScope.value = null
   events.value = []
   draft.value = ''
   draftAttempt.value = 0
@@ -94,9 +100,10 @@ onBeforeUnmount(() => {
       </div>
     </form>
     <ErrorBanner v-if="error" :error="error" />
+    <div v-if="outOfScope" class="banner warn" role="alert">{{ outOfScope }}</div>
   </section>
 
-  <section v-if="events.length || pending" class="card">
+  <section v-if="(events.length || pending) && !outOfScope" class="card">
     <div class="live-head">
       <h2>처리 과정</h2>
       <span class="muted small">{{ pending ? `${elapsed}초 경과` : '종료' }}</span>
@@ -108,7 +115,7 @@ onBeforeUnmount(() => {
     </div>
   </section>
 
-  <section v-if="!pending && !events.length" class="card">
+  <section v-if="!pending && (!events.length || outOfScope)" class="card">
     <h2>예시 요청</h2>
     <ul class="examples">
       <li v-for="ex in EXAMPLE_REQUESTS" :key="ex">

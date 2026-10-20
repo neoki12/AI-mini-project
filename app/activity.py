@@ -12,6 +12,7 @@ from agent.domain_4m import COMMON
 NODES: dict[str, tuple[str, str]] = {
     "route": ("Router", "요청 유형을 판단하고 있어요"),
     "chat_answer": ("Chat", "답변을 작성하고 있어요"),
+    "out_of_scope": ("Router", "검토 범위 밖 요청이에요"),
     "classify": ("Classifier", "변경 내용을 분류하고 있어요 (공장, 변경 유형, 설비·라인)"),
     "plan": ("Planner", "표준 검토 절차에 따라 조사 계획을 세우고 있어요"),
     "gate": ("권위 게이트", "필수 조사가 빠지지 않았는지 확인하고 있어요"),
@@ -41,7 +42,13 @@ def _message(ev: dict[str, Any]) -> str | None:
     if t == "RouteDecided":
         if ev.get("route") == "chat":
             return "일반 대화로 판단했어요"
-        return "검토 요청으로 접수했어요" if ev.get("forced") else "4M 변경 검토 요청으로 판단했어요"
+        if ev.get("route") == "out_of_scope":
+            return "4M 변경 요청이 아니라고 판단해 검토를 시작하지 않아요"
+        if ev.get("forced") and ev.get("evidence"):
+            return f"검토 요청으로 접수했어요 (근거: {', '.join(ev['evidence'])})"
+        if ev.get("forced"):
+            return "검토 요청으로 접수했어요 (라우터 판단)"
+        return "4M 변경 검토 요청으로 판단했어요"
     if t == "Classified":
         types = ", ".join(f"{CHANGE_TYPE_KO.get(c, c)}({c})" for c in ev.get("change_types", []))
         text = f"분류 결과: {ev.get('shop') or COMMON} 공장 · {types}"

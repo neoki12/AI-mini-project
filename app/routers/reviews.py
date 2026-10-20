@@ -17,6 +17,7 @@ from ..runtime import AgentRuntime
 from ..schemas import (ErrorResponse, FeedbackRequest, FeedbackResponse, ReviewListResponse,
                        ReviewRequest, ReviewResponse)
 from ..activity import describe
+from ..errors import NotAChangeRequest
 from ._agent import run_agent, sse_stream
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
@@ -40,10 +41,14 @@ def _field_findings(findings: list[dict]) -> list[dict]:
 
 
 @router.post("", response_model=ReviewResponse, status_code=201,
-             responses={422: {"model": ErrorResponse}, 502: {"model": ErrorResponse}})
+             responses={422: {"model": ErrorResponse,
+                              "description": "요청 형식 오류 또는 4M 변경 요청이 아님"},
+                         502: {"model": ErrorResponse}})
 async def create_review(req: ReviewRequest, runtime: AgentRuntime = Depends(get_runtime)):
     thread_id = req.thread_id or f"review-{uuid.uuid4().hex[:12]}"
     result, run_id = await run_agent(runtime, req.message, thread_id, forced_route="review")
+    if result.get("route") == "out_of_scope":   # 검토하지 않았으므로 이력에 남기지 않는다
+        raise NotAChangeRequest(result["final"])
     events = [describe(e) for e in result.get("events", [])]
     return runtime.reviews.save(thread_id, req.message,
                                 _review_body(runtime, result, events, run_id))
@@ -63,6 +68,9 @@ async def stream_review(req: ReviewRequest, request: Request,
     thread_id = req.thread_id or f"review-{uuid.uuid4().hex[:12]}"
 
     async def save(state: dict, activity: list[dict], run_id: str | None) -> dict:
+        if state.get("route") == "out_of_scope":
+            return {"type": "OutOfScope", "code": "not_a_change_request",
+                    "message": state.get("final", "")}
         review = runtime.reviews.save(thread_id, req.message,
                                       _review_body(runtime, state, activity, run_id))
         return {"type": "ReviewSaved", "id": review["id"],
