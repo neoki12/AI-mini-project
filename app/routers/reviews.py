@@ -10,6 +10,7 @@
 - GET  /api/v1/reviews        : 검토 이력 목록 (최신순, 페이지네이션)
 - GET  /api/v1/reviews/{id}   : 검토 상세
 """
+import asyncio
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -48,13 +49,13 @@ def _field_findings(findings: list[dict]) -> list[dict]:
                               "description": "요청 형식 오류 또는 4M 변경 요청이 아님"},
                          502: {"model": ErrorResponse}})
 async def create_review(req: ReviewRequest, runtime: AgentRuntime = Depends(get_runtime)):
-    message, thread_id, link = _resolve(req, runtime)
+    message, thread_id, link = await _resolve(req, runtime)
     result, run_id = await run_agent(runtime, message, thread_id, forced_route="review")
     if result.get("route") == "out_of_scope":   # 검토하지 않았으므로 이력에 남기지 않는다
         raise NotAChangeRequest(result["final"])
     events = [describe(e) for e in result.get("events", [])]
-    return runtime.reviews.save(thread_id, message,
-                                {**link, **_review_body(runtime, result, events, run_id)})
+    return await asyncio.to_thread(runtime.reviews.save, thread_id, message,
+                                   {**link, **_review_body(runtime, result, events, run_id)})
 
 
 @router.post("/stream", response_class=StreamingResponse,
@@ -68,14 +69,15 @@ async def stream_review(req: ReviewRequest, request: Request,
     (elapsed_ms) · AnswerToken(보고서 토큰) · FinalAnswer · ReviewSaved(id) · [DONE].
     GET + EventSource 대신 POST를 쓴다 — EventSource는 연결이 끊기면 자동 재연결해 같은
     검토를 다시 실행하기 때문이다."""
-    message, thread_id, link = _resolve(req, runtime)
+    message, thread_id, link = await _resolve(req, runtime)
 
     async def save(state: dict, activity: list[dict], run_id: str | None) -> dict:
         if state.get("route") == "out_of_scope":
             return {"type": "OutOfScope", "code": "not_a_change_request",
                     "message": state.get("final", "")}
-        review = runtime.reviews.save(thread_id, message,
-                                      {**link, **_review_body(runtime, state, activity, run_id)})
+        review = await asyncio.to_thread(
+            runtime.reviews.save, thread_id, message,
+            {**link, **_review_body(runtime, state, activity, run_id)})
         return {"type": "ReviewSaved", "id": review["id"],
                 "review_status": review["review_status"]}
 
@@ -86,11 +88,11 @@ async def stream_review(req: ReviewRequest, request: Request,
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
-def _resolve(req: ReviewRequest, runtime: AgentRuntime) -> tuple[str, str, dict]:
+async def _resolve(req: ReviewRequest, runtime: AgentRuntime) -> tuple[str, str, dict]:
     """(Agent에 넘길 요청, 스레드, 원 검토 연결 정보). 보완 재검토면 원 요청에 보완 정보를 덧붙인다."""
     if not req.parent_id:
         return req.message, req.thread_id or f"review-{uuid.uuid4().hex[:12]}", {}
-    parent = runtime.reviews.get(req.parent_id)
+    parent = await asyncio.to_thread(runtime.reviews.get, req.parent_id)
     if parent is None:
         raise HTTPException(status_code=404, detail=f"원 검토가 없습니다: {req.parent_id}")
     message = f"{parent['request']}\n[보완 정보] {req.message}"
@@ -120,14 +122,14 @@ def _review_body(runtime: AgentRuntime, result: dict, events: list[dict],
 @router.get("", response_model=ReviewListResponse)
 async def list_reviews(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0),
                        runtime: AgentRuntime = Depends(get_runtime)):
-    items, total = runtime.reviews.list(limit=limit, offset=offset)
+    items, total = await asyncio.to_thread(runtime.reviews.list, limit, offset)
     return {"items": items, "total": total, "limit": limit, "offset": offset}
 
 
 @router.get("/{review_id}", response_model=ReviewResponse,
             responses={404: {"model": ErrorResponse}})
 async def get_review(review_id: str, runtime: AgentRuntime = Depends(get_runtime)):
-    review = runtime.reviews.get(review_id)
+    review = await asyncio.to_thread(runtime.reviews.get, review_id)
     if review is None:
         raise HTTPException(status_code=404, detail=f"검토 이력이 없습니다: {review_id}")
     return review
@@ -139,15 +141,16 @@ async def add_feedback(review_id: str, req: FeedbackRequest, request: Request,
                        runtime: AgentRuntime = Depends(get_runtime)):
     """검토 결과에 대한 사용자 평가. LangSmith 실행 ID가 있으면 그 실행에 피드백으로 남겨
     관리자 화면과 LangSmith에서 품질을 추적한다. LangSmith 기록이 실패해도 로컬에는 저장한다."""
-    review = runtime.reviews.get(review_id)
+    review = await asyncio.to_thread(runtime.reviews.get, review_id)
     if review is None:
         raise HTTPException(status_code=404, detail=f"검토 이력이 없습니다: {review_id}")
     run_id = review["metadata"].get("langsmith_run_id")
     ls_id = (await request.app.state.langsmith.create_feedback(run_id, req.score, req.comment)
              if run_id else None)
-    return runtime.reviews.add_feedback(review_id, req.score, req.comment, ls_id)
+    return await asyncio.to_thread(runtime.reviews.add_feedback, review_id, req.score,
+                                   req.comment, ls_id)
 
 
 @router.get("/{review_id}/feedback", response_model=list[FeedbackResponse])
 async def list_review_feedback(review_id: str, runtime: AgentRuntime = Depends(get_runtime)):
-    return runtime.reviews.feedback_for(review_id)
+    return await asyncio.to_thread(runtime.reviews.feedback_for, review_id)

@@ -128,15 +128,14 @@ class AgentRuntime:
     async def _run(self, message: str, thread_id: str,
                    forced_route: str | None) -> tuple[dict, str | None]:
         deps = self.deps
-        history = deps.session_store.load(thread_id)   # Wave 12
+        history = await asyncio.to_thread(deps.session_store.load, thread_id)   # Wave 12
         config, run_id = self._trace_config(thread_id, forced_route)
         if deps.version == "v2":
             result = await self.graph.ainvoke(
                 self._initial_state(message, thread_id, history, forced_route), config=config)
         else:
             result, run_id = await run_v1(deps, message, thread_id, history), None   # Wave 14
-        deps.session_store.append(thread_id, "user", message)
-        deps.session_store.append(thread_id, "assistant", result["final"])
+        await self._remember(thread_id, message, result["final"])
         return result, run_id
 
     async def stream(self, message: str, thread_id: str,
@@ -169,7 +168,7 @@ class AgentRuntime:
         - FinalAnswer, 마지막으로 RunCompleted(최종 상태 — 라우터 내부용, 클라이언트로 보내지 않음)
         """
         deps = self.deps
-        history = deps.session_store.load(thread_id)
+        history = await asyncio.to_thread(deps.session_store.load, thread_id)
         config, run_id = self._trace_config(thread_id, forced_route)
         if deps.version != "v2":
             result = await run_v1(deps, message, thread_id, history)
@@ -205,10 +204,16 @@ class AgentRuntime:
                             final = delta["final"]
                         if delta.get("last_prompt"):
                             last_prompt = delta["last_prompt"]
-        deps.session_store.append(thread_id, "user", message)
-        deps.session_store.append(thread_id, "assistant", final)
+        await self._remember(thread_id, message, final)
         yield {"type": "FinalAnswer", "reply": final, "prompt": last_prompt}
         yield {"type": "RunCompleted", "state": state, "run_id": run_id}
+
+    async def _remember(self, thread_id: str, message: str, reply: str) -> None:
+        """대화 이력 저장 (SQLite — 이벤트 루프를 막지 않게 작업 스레드에서)."""
+        def write():
+            self.deps.session_store.append(thread_id, "user", message)
+            self.deps.session_store.append(thread_id, "assistant", reply)
+        await asyncio.to_thread(write)
 
     def metadata(self, result: dict, run_id: str | None) -> dict:
         gate = next((e for e in result.get("events", []) if e["type"] == "GateApplied"), {})

@@ -9,6 +9,7 @@
 
 ADMIN_TOKEN이 설정돼 있으면 X-Admin-Token 헤더가 일치해야 한다.
 """
+import asyncio
 import secrets
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
@@ -69,7 +70,7 @@ async def run_detail(run_id: str, ls: LangSmithService = Depends(_langsmith)):
 
 @router.get("/feedback", response_model=list[FeedbackResponse])
 async def list_feedback(request: Request, limit: int = Query(50, ge=1, le=200)):
-    return request.app.state.runtime.reviews.list_feedback(limit=limit)
+    return await asyncio.to_thread(request.app.state.runtime.reviews.list_feedback, limit)
 
 
 @router.post("/evaluations", response_model=EvaluationJob, status_code=202,
