@@ -7,6 +7,10 @@
 - 실행 시간이 길어(실모델 10건 × 약 35초 × 구성 수) 백그라운드 작업으로 돌리고 진행률을 조회한다
 
 CLI(eval/run_eval.py)와 관리자 API(/api/v1/admin/evaluations)가 같은 EvaluationManager를 쓴다.
+
+작업 상태는 시작·진행·종료 때마다 DB에 남긴다. 서버가 평가 도중 재시작되면 그 작업은 다시
+이어서 돌릴 수 없으므로, 기동 시 queued/running으로 남은 작업을 interrupted로 바꿔 둔다
+(영원히 '진행 중'으로 보이거나 새 평가를 막지 않게).
 """
 import asyncio
 import dataclasses
@@ -32,6 +36,7 @@ logger = logging.getLogger("app")
 DATASET_NAME = "4m-review-eval"
 DATASET_PATH = PROJECT_DIR / "eval" / "4m_dataset.jsonl"
 PROFILES: dict[str, Features] = {"baseline": Features.baseline(), "improved": Features()}
+INTERRUPTED_MESSAGE = "서버가 재시작되어 평가가 중단되었습니다. 다시 실행하세요."
 METRIC_KEYS = ["recall", "precision", "f1", "recall_required", "recall_document",
                "recall_field", "recall_downstream", "grade_correct", "classification_correct",
                "retrieval_recall"]
@@ -101,6 +106,14 @@ class EvaluationManager:
         self.store = store              # 결과 영속화 (SqliteReviewStore.save_evaluation)
         self.jobs: dict[str, dict] = {}
         self._lock = asyncio.Lock()     # 평가는 한 번에 하나만 (LLM 자원 독점 방지)
+        if store is not None:
+            interrupted = store.mark_unfinished_evaluations(INTERRUPTED_MESSAGE)
+            if interrupted:
+                logger.warning("evaluations interrupted by restart: %s", interrupted)
+
+    async def _persist(self, job: dict) -> None:
+        if self.store is not None:
+            await asyncio.to_thread(self.store.save_evaluation, self.public(job))
 
     # 데이터셋 ---------------------------------------------------------------
     def _sync_dataset(self, cases: list[dict]) -> str:
@@ -167,19 +180,25 @@ class EvaluationManager:
         return self.public(job)
 
     async def _run(self, job: dict, cases: list[dict]) -> None:
+        await self._persist(job)   # queued
         async with self._lock:
             job["status"] = "running"
             try:
+                await self._persist(job)
                 job["dataset_sync"] = await asyncio.to_thread(self._sync_dataset, cases)
                 for profile in job["profiles"]:
                     job["experiments"].append(await self._experiment(job, profile, cases))
+                    await self._persist(job)   # 구성 하나가 끝날 때마다
                 job["status"] = "completed"
+            except asyncio.CancelledError:   # 서버 종료
+                job["status"], job["error"] = "interrupted", INTERRUPTED_MESSAGE
+                raise
             except Exception as exc:
                 logger.exception("evaluation failed job=%s", job["id"])
                 job["status"], job["error"] = "failed", f"{type(exc).__name__}: {str(exc)[:300]}"
             finally:
                 job["finished_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-                if self.store is not None:
+                if self.store is not None:   # 취소 중에도 남도록 동기로 저장
                     self.store.save_evaluation(self.public(job))
 
     async def _experiment(self, job: dict, profile: str, cases: list[dict]) -> dict:
@@ -203,6 +222,7 @@ class EvaluationManager:
             rows.append({"case_id": row["example"].metadata.get("case_id"), **scores,
                          "latency_s": outputs.get("latency_s"), "tokens": outputs.get("tokens")})
             job["progress"]["done"] += 1
+            await self._persist(job)
         experiment_name = results.experiment_name
         url = await asyncio.to_thread(self._experiment_url, experiment_name)
         summary = {k: mean([r.get(k) for r in rows]) for k in METRIC_KEYS}

@@ -97,6 +97,21 @@ class SqliteReviewStore:
         self.conn.commit()
 
     @locked
+    def mark_unfinished_evaluations(self, message: str) -> list[str]:
+        """queued/running으로 남은 평가(이전 프로세스가 돌리던 것)를 interrupted로 바꾼다."""
+        changed = []
+        for (body,) in self.conn.execute("SELECT body FROM evaluations").fetchall():
+            job = json.loads(body)
+            if job.get("status") in ("queued", "running"):
+                job["status"], job["error"] = "interrupted", message
+                job.setdefault("finished_at", None)
+                self.conn.execute("UPDATE evaluations SET body=? WHERE id=?",
+                                  (json.dumps(job, ensure_ascii=False), job["id"]))
+                changed.append(job["id"])
+        self.conn.commit()
+        return changed
+
+    @locked
     def list_evaluations(self, limit: int = 20) -> list[dict]:
         rows = self.conn.execute("SELECT body FROM evaluations ORDER BY created DESC LIMIT ?",
                                  (limit,)).fetchall()

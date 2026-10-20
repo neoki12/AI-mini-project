@@ -67,7 +67,7 @@ onBeforeUnmount(() => clearInterval(poll))
         :class="['job', job.status, { active: selected?.id === job.id }]" @click="selectedId = job.id">
         <span class="mono">{{ job.id }}</span>
         <span>{{ job.status === 'running' || job.status === 'queued'
-          ? `진행 ${job.progress.done}/${job.progress.total}` : job.status === 'completed' ? '완료' : '실패' }}</span>
+          ? `진행 ${job.progress.done}/${job.progress.total}` : job.status === 'completed' ? '완료' : job.status === 'interrupted' ? '중단됨' : '실패' }}</span>
         <span class="muted small">{{ formatDateTime(job.created_at) }} · {{ job.case_count }}건 · {{ job.llm_backend }}</span>
       </button>
     </div>
@@ -115,6 +115,7 @@ onBeforeUnmount(() => clearInterval(poll))
 .job { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; }
 .job.active { border-color: var(--accent); }
 .job.failed { border-color: var(--danger-text); }
+.job.interrupted { border-color: var(--warn-text); }
 .progress { height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; margin: 8px 0 12px; }
 .progress div { height: 100%; background: var(--accent); transition: width 0.4s; }
 .num { font-variant-numeric: tabular-nums; }

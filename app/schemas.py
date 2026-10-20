@@ -211,7 +211,7 @@ class EvaluationRequest(BaseModel):
 
 class EvaluationJob(BaseModel):
     id: str
-    status: Literal["queued", "running", "completed", "failed"]
+    status: Literal["queued", "running", "completed", "failed", "interrupted"]
     created_at: str
     finished_at: str | None = None
     profiles: list[str]

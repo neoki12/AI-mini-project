@@ -178,7 +178,7 @@ export interface ExperimentResult {
 
 export interface EvaluationJob {
   id: string
-  status: 'queued' | 'running' | 'completed' | 'failed'
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'interrupted'
   created_at: string
   finished_at?: string | null
   profiles: string[]
