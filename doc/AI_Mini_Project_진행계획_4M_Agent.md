@@ -46,7 +46,7 @@
 | 1 | 도메인 전환 | Base Agent의 장애 대응 도메인을 완성차 공장 4M 변경 영향 검토로 교체 | 그래프, LLM 프롬프트 3종(fake/ollama/openai), MCP 서버, 프론트 이벤트 문구(`STEP_LABELS`), 회귀 질문을 4M 도메인으로 재구성. `research_node`의 task 종류 분기를 Tool/Resource 매핑 표 방식으로 일반화 |
 | 2 | MCP | 4M 도메인 Tool, Resource, Prompt 설계 | Tool: 설비 상태(`equipment.json`), 라인 가동 상태(`production.json`) 조회 / Resource: `std://shop-standard/{공장}`, `std://inspection-criteria/{공장}` (문서ID, 조항, 개정판 함께 반환) / Prompt: `4m_review(change_type=, shop=)`. Tool 결과가 판단에 실제로 쓰인다(설비 이상 → EXT-EQ-01, 가동 중 변경 → EXT-LOT-01) |
 | 3 | 그래프 개선 | change_type과 공장 판별 노드 추가 | plan 앞에 `classify_change` 노드를 둔다. LLM 구조화 출력으로 `shop`, `change_types: list`를 받아 복합 변경을 허용하고, 키워드 기반 코드 보정을 안전망으로 둔다 |
-| 4 | RAG | 표준서 검색을 키워드 매핑에서 RAG로 변경 | 표준서 9개를 조항 단위 41개 청크로 나눠 임베딩(Ollama `bge-m3`)하고 Chroma에 저장. `shop`, `change_types`를 메타데이터로 필터링 |
+| 4 | RAG | 표준서 검색을 키워드 매핑에서 RAG로 변경 ✅ (결과: doc/ROADMAP.md "RAG") | 표준서 9개를 조항 단위 41개 청크로 나눠 임베딩(Ollama `bge-m3`)하고 Chroma에 저장. `shop`, `change_types`를 메타데이터로 필터링 |
 | 5 | 그래프 개선 | change_type별 필수 검증 항목 권위 게이트 | 규칙표(`data/4m/rules/required_items.json`)를 기준으로, LLM이 세운 계획에서 빠진 필수 항목을 코드가 강제로 추가 (Base 게이트는 task 제거만 하므로 추가 로직은 새로 작성) |
 | 6 | 그래프 개선 | 공정 간 영향 검토 | `process_flow.json`의 규칙으로 변경 공장의 다음 공장 확인 항목(`DS-*`)을 도출. 예: 프레스 강판 변경 → 차체 용접 조건 재검증, 도장 전처리 확인 |
 | 7 | 그래프 개선 | 변경 등급 판정 | QS-CM-001 조항 2 기준으로 A(품질본부 승인)/B(공장 품질팀)/C(공장 자체) 등급을 판정. 안전 체결부(브레이크, 조향, 에어백, 시트벨트, 연료)가 걸리면 A등급. 등급별 초기유동관리 기간도 함께 제시 |

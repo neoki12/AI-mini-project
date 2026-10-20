@@ -11,7 +11,7 @@ Capstone Base(`all_total_vue`)의 골격(싱글턴·MCP·SSE·라우팅·게이�
 
 ```bash
 bash sh/setup_venv.sh            # 최초 1회 — Python 패키지
-bash sh/setup_ollama.sh          # 최초 1회 — qwen2.5:7b(fast), qwen3:8b(quality). 있으면 건너뜀
+bash sh/setup_ollama.sh          # 최초 1회 — qwen2.5:7b(fast), qwen3:8b(quality), bge-m3(임베딩). 있으면 건너뜀
 cp .env.example .env            # 선택 — LangSmith 키 입력 시 추적·관리자 기능 (없어도 Agent는 동작)
 
 bash sh/run_agent_ollma.sh       # 백엔드 http://127.0.0.1:8100 (API 문서 /docs)
@@ -46,6 +46,7 @@ Vue 3 (frontend/)  ── REST /api/v1 · SSE ──▶  FastAPI (app/)
 | `agent/graph.py` | Supervisor 그래프 (병렬 조사, 재조사, 재작성 루프, 기능 스위치) |
 | `agent/llm/` | LangChain 모델 계층 (구조화 출력, 스트리밍, 토큰 집계, fake 모델) |
 | `agent/mcp_client.py`, `mcp_server.py` | MCP 클라이언트·서버 (시간 제한, 오류 규약, 입력·출력 스키마) |
+| `rag/` | 표준서 조항 RAG — bge-m3 임베딩 + Chroma, 공장·변경 유형 필터 (MCP Tool `search_standards`) |
 | `app/` | FastAPI — 설정, 런타임, 라우터(health·chat·reviews·admin), 활동 로그, LangSmith 연동, 평가 |
 | `frontend/` | Vue 3 + Vite — 새 검토(실시간 활동 로그), 검토 상세·이력, 피드백, 관리자 |
 | `data/4m/` | 규칙표, 표준서 9개(조항 41개), 공정 흐름, 설비·라인 상태 |
@@ -69,7 +70,8 @@ Vue 3 (frontend/)  ── REST /api/v1 · SSE ──▶  FastAPI (app/)
 |---|---|---|
 | `LLM_BACKEND` | `fake` (스크립트는 `ollama`/`openai`) | LLM 백엔드 |
 | `OLLAMA_FAST_MODEL` / `OLLAMA_QUALITY_MODEL` | `qwen2.5:7b` / `qwen3:8b` | 역할별 모델 |
-| `PIPELINE_PROFILE` | improved | `baseline`이면 개선 기능 전부 끔. 개별: `GATE_4M`, `JUDGE_CONDITIONS`, `FLOW_IMPACT`, `VALIDATOR_4M` |
+| `PIPELINE_PROFILE` | improved | `baseline`이면 개선 기능 전부 끔. 개별: `GATE_4M`, `JUDGE_CONDITIONS`, `FLOW_IMPACT`, `VALIDATOR_4M`, `RETRIEVER=keyword\|rag` |
+| `EMBEDDING_BACKEND` / `EMBEDDING_MODEL` | LLM_BACKEND가 fake면 fake, 아니면 ollama / `bge-m3` | RAG 임베딩 |
 | `MCP_FLAKY_FIRST_CALL` | `0` | Wave 9 재시도 데모용 강제 타임아웃 |
 | `APP_DB_PATH` | `session.db` | 대화·검토·피드백·평가 저장 SQLite |
 | `ADMIN_TOKEN` | 없음 | 설정하면 관리자 API에 `X-Admin-Token` 필요 |
