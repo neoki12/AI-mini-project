@@ -15,7 +15,9 @@ URI나 서버를 하드코딩하지 않고, resource는 이름으로 연결된 �
 import asyncio
 
 import logging
+import os
 import re
+from datetime import datetime, timezone
 
 from ..domain_4m import FIELD_ITEMS, SHOP_SLUGS, lines_of, parse_doc
 from ..mcp_client import MCP_REQUEST_ERRORS
@@ -60,6 +62,26 @@ async def fetch_documents(mcp, tasks: list[dict]) -> tuple[list[dict], list[dict
     return list(documents), events
 
 
+FIELD_DATA_MAX_AGE_HOURS = float(os.environ.get("FIELD_DATA_MAX_AGE_HOURS", "24"))
+
+
+def stale_warning(snapshot: str | None, now: datetime | None = None,
+                  max_age_hours: float = FIELD_DATA_MAX_AGE_HOURS) -> str | None:
+    """현장 데이터 스냅샷이 max_age_hours보다 오래됐으면 경고 문장. 시각을 읽을 수 없어도 경고."""
+    if not snapshot:
+        return "현장 데이터의 기준 시각을 알 수 없어 현재 상태와 다를 수 있습니다."
+    try:
+        taken = datetime.fromisoformat(snapshot)
+    except ValueError:
+        return "현장 데이터의 기준 시각을 읽을 수 없어 현재 상태와 다를 수 있습니다."
+    now = now or datetime.now(taken.tzinfo or timezone.utc)
+    age = (now - taken).total_seconds() / 3600
+    if age > max_age_hours:
+        return (f"현장 데이터가 {taken:%Y-%m-%d %H:%M} 기준(약 {age:.0f}시간 전)이라 "
+                "현재 설비·라인 상태와 다를 수 있습니다.")
+    return None
+
+
 RAG_TOP_K = 4   # 평가 10건에서 근거 조항 8/8을 찾은 최소 k (bge-m3, fake 모두)
 
 
@@ -98,8 +120,8 @@ async def search_documents(mcp, query: str, classification: dict,
 
 async def fetch_field_data(mcp, tasks: list[dict]) -> tuple[list[dict], int, list[dict],
                                                            list[str]]:
-    """(findings, 재시도 합계, events, 조회 실패 경고)."""
-    async def call(task: dict) -> tuple[dict, list[dict], int, str | None]:
+    """(findings, 재시도 합계, events, 경고 — 조회 실패와 오래된 데이터)."""
+    async def call(task: dict) -> tuple[dict, list[dict], int, str | None, str | None]:
         name, arg = TOOL_NAMES[task["kind"]]
         try:
             data, retries = await with_retry(mcp.call_tool, name, {arg: task["target"]})
@@ -108,7 +130,8 @@ async def fetch_field_data(mcp, tasks: list[dict]) -> tuple[list[dict], int, lis
             failed = {"kind": task["kind"], "target": task["target"], "name": "",
                       "line": None, "status": "조회 실패", "abnormal": False,
                       "note": f"{type(exc).__name__}", "failed": True}
-            return task, [failed], 0, f"{KIND_KO[task['kind']]} {task['target']} 상태를 조회하지 못했습니다."
+            return (task, [failed], 0,
+                    f"{KIND_KO[task['kind']]} {task['target']} 상태를 조회하지 못했습니다.", None)
         if task["kind"] == "equipment":
             found = [{"kind": "equipment", "target": eq["id"], "name": eq.get("name", ""),
                       "line": eq.get("line"), "status": eq.get("status", ""),
@@ -119,22 +142,23 @@ async def fetch_field_data(mcp, tasks: list[dict]) -> tuple[list[dict], int, lis
                       "name": "", "line": data.get("line"), "status": data.get("status"),
                       "abnormal": data.get("status") == "running",
                       "note": data.get("note", "")}]
-        return task, found, retries, None
+        return task, found, retries, None, stale_warning(data.get("snapshot"))
 
     results = await asyncio.gather(*(call(t) for t in tasks))
     findings, seen, retry_total, events, warnings = [], set(), 0, [], []
-    for task, found, retries, warning in results:
+    for task, found, retries, failure, stale in results:
         retry_total += retries
-        if warning:
-            warnings.append(warning)
+        for warning in (failure, stale):
+            if warning and warning not in warnings:   # 같은 스냅샷 경고는 한 번만
+                warnings.append(warning)
         for f in found:
             key = (f["kind"], f["target"])
             if key not in seen:
                 seen.add(key)
                 findings.append(f)
         events.append({"type": "TaskCompleted", "id": task["id"], "source": task["kind"],
-                       "target": task["target"], "retries": retries, "failed": bool(warning),
-                       "summary": warning or _summary(task, found)})
+                       "target": task["target"], "retries": retries, "failed": bool(failure),
+                       "stale": bool(stale), "summary": failure or _summary(task, found)})
     return findings, retry_total, events, warnings
 
 

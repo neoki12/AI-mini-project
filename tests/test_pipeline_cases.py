@@ -351,3 +351,39 @@ def test_chain_flows_propagates_through_auto_rules_only():
     chained = chain_flows([flow["rules"][0]], flow)
     assert [(r["id"], r["via"]) for r in chained] == [("R2", "R1"), ("R3", "R2")]   # R4는 주제 판단 필요
     assert chain_flows([flow["rules"][0]], {**flow, "rules": flow["rules"][:1]}) == []
+
+
+def test_stale_field_data_warning():
+    from datetime import datetime, timezone
+
+    from agent.agents.research import stale_warning
+    now = datetime(2026, 10, 25, 10, 0, tzinfo=timezone.utc)
+    assert stale_warning("2026-10-25T08:00:00+00:00", now, 24) is None
+    old = stale_warning("2026-10-22T10:00:00+00:00", now, 24)
+    assert old and "약 72시간 전" in old
+    assert stale_warning(None, now) and stale_warning("어제", now)
+
+
+def test_stale_field_data_makes_review_need_check(tmp_path, monkeypatch):
+    """현장 데이터가 오래됐으면 조회 실패가 아니라 경고로 남기고 '추가 확인 필요'로 내보낸다."""
+    import asyncio
+
+    from agent.agents import research
+    # 데모 스냅샷(2026-10-24)이 오늘보다 미래라 기준을 크게 음수로 둬 '오래됨'으로 만든다
+    monkeypatch.setattr(research.stale_warning, "__defaults__", (None, -100_000))
+
+    async def main():
+        runtime = AgentRuntime(Settings(llm_backend="fake", db_path=tmp_path / "s.db"))
+        await runtime.start()
+        try:
+            result, _ = await runtime.run(DATASET[7]["input"], "t-stale", forced_route="review")
+            return result
+        finally:
+            await runtime.stop()
+    result = asyncio.run(main())
+    assert result["review_status"] == "추가 확인 필요"
+    assert sum("현장 데이터가" in w for w in result["warnings"]) == 1          # 한 번만
+    field_events = [e for e in result["events"]
+                    if e["type"] == "TaskCompleted" and e["source"] == "equipment"]
+    assert field_events and all(e["stale"] and not e["failed"] for e in field_events)
+    assert "EXT-EQ-01" in {i["id"] for i in result["checklist"]}               # 판정은 그대로
