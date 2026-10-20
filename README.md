@@ -2,17 +2,17 @@
 
 완성차 공장(프레스 → 차체 → 도장 → 의장)에서 작업자·설비·재료·공법(4M) 변경 요청이 들어오면,
 표준서와 현장 데이터를 조회해 **필요한 검증 항목, 변경 등급, 다음 공정 영향**을 정리하는 검토 보조
-Agent 서비스다. 최종 판단과 승인은 품질 담당자가 한다. 데이터는 교육용 가상 데이터다(`data/4m/README.md`).
+Agent 서비스다. 최종 판단과 승인은 품질 담당자가 한다. 데이터는 교육용 가상 데이터다([`data/4m/README.md`](data/4m/README.md)).
 
 Capstone Base(`all_total_vue`)의 골격(싱글턴·MCP·SSE·라우팅·게이트·재계획·검증·재시도·병렬·세션·
-주입)을 이어받아 상용 수준 구조로 다시 만들었다. 단계별 변경 내역은 `doc/ROADMAP.md`.
+주입)을 이어받아 상용 수준 구조로 다시 만들었다. 단계별 변경 내역과 실측 결과는 [`doc/ROADMAP.md`](doc/ROADMAP.md).
 
 ## 실행
 
 ```bash
 bash sh/setup_venv.sh            # 최초 1회 — Python 패키지
 bash sh/setup_ollama.sh          # 최초 1회 — qwen2.5:7b(fast), qwen3:8b(quality). 있으면 건너뜀
-cp ../base-langsmith/.env .env   # 선택 — LangSmith 추적·관리자 기능 (없어도 Agent는 동작)
+cp .env.example .env            # 선택 — LangSmith 키 입력 시 추적·관리자 기능 (없어도 Agent는 동작)
 
 bash sh/run_agent_ollma.sh       # 백엔드 http://127.0.0.1:8100 (API 문서 /docs)
 bash sh/build_frontend.sh        # 화면 빌드 → http://127.0.0.1:8100 에서 화면 + API
@@ -50,7 +50,7 @@ Vue 3 (frontend/)  ── REST /api/v1 · SSE ──▶  FastAPI (app/)
 | `frontend/` | Vue 3 + Vite — 새 검토(실시간 활동 로그), 검토 상세·이력, 피드백, 관리자 |
 | `data/4m/` | 규칙표, 표준서 9개(조항 41개), 공정 흐름, 설비·라인 상태 |
 | `eval/` | 평가 데이터셋 10건, 채점 함수, 평가 CLI |
-| `doc/` | `ROADMAP.md`(단계별 결과), `STREAMING.md`(SSE 이벤트 규격) |
+| `doc/` | [`ROADMAP.md`](doc/ROADMAP.md)(단계별 결과·실측), [`STREAMING.md`](doc/STREAMING.md)(SSE 이벤트 규격), [진행계획](doc/AI_Mini_Project_진행계획_4M_Agent.md) |
 
 ## 주요 API
 
