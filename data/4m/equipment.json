@@ -1,0 +1,51 @@
+{
+  "snapshot": "2026-10-24T10:00:00+09:00",
+  "description": "설비 상태 스냅샷 (MCP Tool get_equipment_status가 반환). abnormal=true인 설비를 변경 대상 공정에서 계속 사용하면 QS-CM-001 조항 4에 따라 EXT-EQ-01이 추가된다.",
+  "equipment": {
+    "PR-DIE-HD01": {
+      "shop": "프레스", "line": "PR-1", "name": "후드 외판 드로잉 금형",
+      "status": "정상", "abnormal": false,
+      "note": "타발 수 18만 회 / 정비 주기 25만 회"
+    },
+    "BD-RB-201": {
+      "shop": "차체", "line": "BD-SIDE", "name": "사이드 패널 용접 로봇 #1",
+      "status": "정상", "abnormal": false,
+      "note": "교체 예정 설비"
+    },
+    "BD-RB-202": {
+      "shop": "차체", "line": "BD-SIDE", "name": "사이드 패널 용접 로봇 #2",
+      "status": "정상", "abnormal": false,
+      "note": "교체 예정 설비"
+    },
+    "BD-RB-301": {
+      "shop": "차체", "line": "BD-DASH", "name": "대시 패널 용접 로봇 #1",
+      "status": "팁 교체 주기 초과", "abnormal": true,
+      "note": "팁 드레싱 후 타점 수 4,800 / 교체 기준 4,000"
+    },
+    "BD-RB-302": {
+      "shop": "차체", "line": "BD-DASH", "name": "대시 패널 용접 로봇 #2",
+      "status": "팁 교체 주기 초과", "abnormal": true,
+      "note": "팁 드레싱 후 타점 수 4,350 / 교체 기준 4,000"
+    },
+    "BD-JG-110": {
+      "shop": "차체", "line": "BD-FLOOR", "name": "플로어 패널 용접 지그 (기존)",
+      "status": "정상", "abnormal": false,
+      "note": "신규 지그로 교체 예정"
+    },
+    "PT-OV-02": {
+      "shop": "도장", "line": "PT-TOP", "name": "상도 건조 오븐",
+      "status": "정상", "abnormal": false,
+      "note": "온도 균일도 ±3℃"
+    },
+    "AS-NR-120": {
+      "shop": "의장", "line": "AS-2", "name": "크래시패드 체결 너트러너",
+      "status": "교정 기한 만료", "abnormal": true,
+      "note": "교정 기한 2026-10-15 — 도어 트림 공정과 무관"
+    },
+    "AS-NR-305": {
+      "shop": "의장", "line": "AS-1", "name": "시트벨트 앵커 체결 너트러너",
+      "status": "정상", "abnormal": false,
+      "note": "교체 예정 설비"
+    }
+  }
+}

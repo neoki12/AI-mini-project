@@ -1,0 +1,17 @@
+{
+  "snapshot": "2026-10-24T10:00:00+09:00",
+  "description": "라인별 가동 상태 스냅샷 (MCP Tool get_production_status가 반환). 변경 적용 시점에 대상 라인이 가동 중(running)이면 QS-CM-001 조항 5에 따라 EXT-LOT-01이 추가된다. 차량은 차체 번호(Body No.)로 추적한다.",
+  "lines": {
+    "PR-1": {"shop": "프레스", "status": "planned_stop", "note": "주말 계획정지"},
+    "BD-SIDE": {"shop": "차체", "status": "planned_stop", "note": "주말 계획정지"},
+    "BD-DASH": {"shop": "차체", "status": "planned_stop", "note": "주말 계획정지"},
+    "BD-FLOOR": {
+      "shop": "차체", "status": "running", "note": "주말 특근 생산 중",
+      "models": ["CV-A", "CV-B"], "wip_bodies": 42,
+      "body_no_range": "B2610-08811 ~ B2610-08852"
+    },
+    "PT-TOP": {"shop": "도장", "status": "planned_stop", "note": "주말 계획정지"},
+    "AS-1": {"shop": "의장", "status": "planned_stop", "note": "주말 계획정지"},
+    "AS-2": {"shop": "의장", "status": "planned_stop", "note": "주말 계획정지"}
+  }
+}
