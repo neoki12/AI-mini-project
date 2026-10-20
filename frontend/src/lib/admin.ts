@@ -11,6 +11,7 @@ export const METRICS: { key: string; label: string; kind: 'ratio' | 'seconds' | 
   { key: 'recall_downstream', label: 'Recall · 다음 공정', kind: 'ratio' },
   { key: 'grade_correct', label: '변경 등급 정확도', kind: 'ratio' },
   { key: 'classification_correct', label: '분류 정확도', kind: 'ratio' },
+  { key: 'retrieval_recall', label: '관련 문서 검색 Recall', kind: 'ratio' },
   { key: 'latency_s', label: '평균 지연', kind: 'seconds' },
   { key: 'tokens', label: '평균 토큰', kind: 'count' },
 ]

@@ -22,6 +22,7 @@ cd "$(dirname "$0")/.."
 
 FAST_MODEL="${OLLAMA_FAST_MODEL:-qwen2.5:7b}"
 QUALITY_MODEL="${OLLAMA_QUALITY_MODEL:-qwen3:8b}"
+EMBED_MODEL="${EMBEDDING_MODEL:-bge-m3}"   # 표준서 RAG 임베딩
 FORCE_REFRESH="${OLLAMA_FORCE_REFRESH:-0}"
 
 command -v ollama >/dev/null 2>&1 \
@@ -59,7 +60,7 @@ curl -s --max-time 2 http://127.0.0.1:11434/api/tags >/dev/null 2>&1 \
 
 # ── 3) 기존 모델 삭제 (OLLAMA_FORCE_REFRESH=1일 때만) ────────────────────
 if [ "$FORCE_REFRESH" = "1" ]; then
-    for m in "$FAST_MODEL" "$QUALITY_MODEL"; do
+    for m in "$FAST_MODEL" "$QUALITY_MODEL" "$EMBED_MODEL"; do
         if ollama list | grep "^${m}" >/dev/null; then
             echo "기존 모델 삭제(OLLAMA_FORCE_REFRESH=1): $m"
             ollama rm "$m"
@@ -68,7 +69,7 @@ if [ "$FORCE_REFRESH" = "1" ]; then
 fi
 
 # ── 4) 없는 모델만 pull (이미 있으면 재사용하고 건너뜀) ───────────────────
-for m in "$FAST_MODEL" "$QUALITY_MODEL"; do
+for m in "$FAST_MODEL" "$QUALITY_MODEL" "$EMBED_MODEL"; do
     if ollama list | grep "^${m}" >/dev/null; then
         echo "이미 받아져 있어 재사용: $m"
         continue

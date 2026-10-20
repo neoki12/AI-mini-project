@@ -33,7 +33,8 @@ DATASET_NAME = "4m-review-eval"
 DATASET_PATH = PROJECT_DIR / "eval" / "4m_dataset.jsonl"
 PROFILES: dict[str, Features] = {"baseline": Features.baseline(), "improved": Features()}
 METRIC_KEYS = ["recall", "precision", "f1", "recall_required", "recall_document",
-               "recall_field", "recall_downstream", "grade_correct", "classification_correct"]
+               "recall_field", "recall_downstream", "grade_correct", "classification_correct",
+               "retrieval_recall"]
 
 
 def load_cases(path: Path = DATASET_PATH) -> list[dict]:
@@ -79,7 +80,16 @@ def ev_classification(outputs: dict, reference_outputs: dict) -> dict:
     return {"key": "classification_correct", "score": int(ok)}
 
 
-EVALUATORS = [ev_recall, ev_precision, ev_f1, ev_layers, ev_grade, ev_classification]
+def ev_retrieval(outputs: dict, reference_outputs: dict) -> dict:
+    """관련 문서 Recall — 정답 relevant_docs(공통 규정 제외) 중 조사한 문서에 들어온 비율."""
+    relevant = [d for d in reference_outputs["relevant_docs"] if not d.startswith("QS-CM")]
+    got = set(outputs.get("retrieved_docs", []))
+    value = sum(d in got for d in relevant) / len(relevant) if relevant else None
+    return {"key": "retrieval_recall", "score": value}
+
+
+EVALUATORS = [ev_recall, ev_precision, ev_f1, ev_layers, ev_grade, ev_classification,
+              ev_retrieval]
 
 
 # ── 실행 관리 ────────────────────────────────────────────────────────────
@@ -126,6 +136,10 @@ class EvaluationManager:
                     "grade": (state.get("grading") or {}).get("grade"),
                     "shop": c.get("shop"), "change_types": c.get("change_types", []),
                     "review_status": state.get("review_status"),
+                    "retrieved_docs": sorted({d["doc_id"] for d in state.get("documents", [])
+                                              if d.get("found")}),
+                    "clauses_read": sum(len(d.get("clauses", []))
+                                        for d in state.get("documents", []) if d.get("found")),
                     "latency_s": round(time.perf_counter() - started, 2),
                     "tokens": state.get("tokens", 0)}
         return target

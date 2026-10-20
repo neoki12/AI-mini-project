@@ -88,7 +88,7 @@ def test_evaluators_score_against_reference():
     sloppy = {**perfect, "checklist_ids": ["COM-01", "EXT-PR-01"], "grade": "A"}
     assert ev_f1(sloppy, ref)["score"] < 0.3
     assert ev_grade(sloppy, ref)["score"] == 0
-    assert len(EVALUATORS) == 6
+    assert len(EVALUATORS) == 7
 
 
 def test_evaluation_target_produces_scorable_outputs(client):
