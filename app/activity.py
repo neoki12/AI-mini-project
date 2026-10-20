@@ -112,8 +112,11 @@ def _message(ev: dict[str, Any]) -> str | None:
         missing = ev.get("missing", [])
         if ev.get("verdict") == "합격":
             return "검수 통과: 모든 검증 항목이 보고서에 들어 있어요"
-        if missing and ev.get("verdict") == "불합격":
-            return f"검수 반려: {len(missing)}건 누락({', '.join(missing)}) → 다시 작성할게요"
+        issues = ev.get("issues", [])
+        if (missing or issues) and ev.get("verdict") == "불합격":
+            parts = ([f"{len(missing)}건 누락({', '.join(missing)})"] if missing else []) \
+                + ([f"근거 인용 문제 {len(issues)}건({'; '.join(issues)})"] if issues else [])
+            return f"검수 반려: {' / '.join(parts)} → 다시 작성할게요"
         if ev.get("verdict") == "불합격":
             return "검수 반려: 형식 기준 미달 → 다시 작성할게요"
         return f"검수 결과: {ev.get('verdict')}"

@@ -35,6 +35,7 @@ const showLog = ref(false)
       <ul>
         <li v-for="w in review.warnings" :key="w">{{ w }}</li>
         <li v-if="review.missing_items.length">보고서에 빠진 항목: {{ review.missing_items.join(', ') }}</li>
+        <li v-for="issue in review.citation_issues ?? []" :key="issue">근거 인용 문제: {{ issue }}</li>
       </ul>
     </div>
 

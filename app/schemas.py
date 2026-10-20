@@ -116,6 +116,8 @@ class ReviewResponse(BaseModel):
     grading: Grading | None = Field(description="변경 등급, 승인 주체, 초기유동관리 기간")
     review_status: Literal["검토 완료", "추가 확인 필요"] | None
     missing_items: list[str] = Field(description="보고서에 끝내 빠진 검증 항목 ID")
+    citation_issues: list[str] = Field(default_factory=list,
+                                       description="보고서 근거 인용이 실제 자료와 맞지 않은 내용")
     warnings: list[str] = Field(description="Partial Result 경고 (예: 공정 표준 미확보)")
     reply: str = Field(description="검토 결과 본문")
     events: list[dict[str, Any]]

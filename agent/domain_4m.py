@@ -197,6 +197,17 @@ def flow_candidates(shop: str | None, change_types: list[str]) -> list[dict]:
             if r["from_shop"] == shop and r["change_type"] in change_types]
 
 
+def standards_index() -> dict[str, dict]:
+    """문서ID → {"rev", "clauses": 조항 번호 집합}. 보고서 인용 검증의 기준."""
+    index = {}
+    for path in sorted((DATA_DIR / "standards").glob("*.md")):
+        front, clauses = parse_doc(path.read_text(encoding="utf-8"))
+        if front.get("doc_id"):
+            index[front["doc_id"]] = {"rev": front.get("rev", ""),
+                                      "clauses": {no for no, _, _ in clauses}}
+    return index
+
+
 def parse_doc(text: str) -> tuple[dict, list[tuple[str, str, str]]]:
     """표준서 Markdown → (front-matter, [(조항 번호, 제목, 본문)])."""
     front = {}

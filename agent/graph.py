@@ -57,6 +57,7 @@ class AgentState(TypedDict, total=False):
     validation_attempts: int
     validation_feedback: str | None
     missing_items: list[str]
+    citation_issues: list[str]
     review_status: str
     final: str
     last_prompt: str
@@ -297,11 +298,13 @@ async def validate_node(state: AgentState, deps: SupervisorDeps) -> dict:
     """Validator — 항목 누락 탐지 (Wave 8). 반려 시 피드백과 함께 재작성."""
     attempts = state.get("validation_attempts", 0) + 1
     result = validator.validate(state["draft"], state["checklist"], state.get("warnings", []),
-                                attempts, validator_4m=deps.features.validator_4m)
+                                attempts, validator_4m=deps.features.validator_4m,
+                                documents=state.get("documents", []))
     return {"validation_attempts": attempts, "validation_feedback": result["feedback"],
-            "missing_items": result["missing"], "review_status": result["review_status"],
+            "missing_items": result["missing"], "citation_issues": result["issues"],
+            "review_status": result["review_status"],
             "events": [{"type": "Validation", "attempt": attempts, "verdict": result["verdict"],
-                        "missing": result["missing"]}]}
+                        "missing": result["missing"], "issues": result["issues"]}]}
 
 
 async def finalize_node(state: AgentState, deps: SupervisorDeps) -> dict:
@@ -311,6 +314,8 @@ async def finalize_node(state: AgentState, deps: SupervisorDeps) -> dict:
         reasons = list(state.get("warnings", []))
         if state.get("missing_items"):
             reasons.append(f"보고서에 빠진 검증 항목: {', '.join(state['missing_items'])}")
+        if state.get("citation_issues"):
+            reasons.append(f"근거 인용 문제: {', '.join(state['citation_issues'])}")
         final = f"⚠️ 추가 확인 필요 — {' / '.join(reasons)}\n\n{final}"
     return {"final": final,
             "events": [{"type": "Finalize", "pipeline": "4m-review-v2",

@@ -64,6 +64,7 @@ export interface Review {
   grading: Grading | null
   review_status: ReviewStatus | null
   missing_items: string[]
+  citation_issues?: string[]
   warnings: string[]
   reply: string
   events: StreamEvent[]
