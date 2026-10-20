@@ -328,3 +328,26 @@ def test_validator_rejects_bad_citations_then_needs_check():
     assert first["ok"] is False and "근거 인용" in first["feedback"]
     last = validate(draft, checklist, [], 3, validator_4m=True, documents=docs)
     assert last["ok"] is True and last["review_status"] == "추가 확인 필요" and last["issues"]
+
+
+def test_grade_a_for_regulated_parts_from_rule_table():
+    from agent.agents.assessor import grade
+    g = grade({"change_types": ["Material"]}, [], "전조등 램프 공급사를 변경합니다")
+    assert g["grade"] == "A" and "법규 관련 부품" in g["reason"]
+    assert grade({"change_types": ["Material"]}, [], "도료 공급사 변경")["grade"] == "B"
+
+
+def test_chain_flows_propagates_through_auto_rules_only():
+    from agent.domain_4m import chain_flows
+    flow = {
+        "item_meta": {"DS-X-01": {"implies": {"shop": "차체", "change_type": "Method"}},
+                      "DS-Y-01": {"implies": {"shop": "도장", "change_type": "Method"}}},
+        "rules": [
+            {"id": "R1", "from_shop": "프레스", "change_type": "Material", "subject": "s", "items": ["DS-X-01"]},
+            {"id": "R2", "from_shop": "차체", "change_type": "Method", "subject": "s", "items": ["DS-Y-01"], "auto": True},
+            {"id": "R3", "from_shop": "도장", "change_type": "Method", "subject": "s", "items": ["DS-Z-01"], "auto": True},
+            {"id": "R4", "from_shop": "차체", "change_type": "Method", "subject": "주제 판단 필요", "items": ["DS-W-01"]},
+        ]}
+    chained = chain_flows([flow["rules"][0]], flow)
+    assert [(r["id"], r["via"]) for r in chained] == [("R2", "R1"), ("R3", "R2")]   # R4는 주제 판단 필요
+    assert chain_flows([flow["rules"][0]], {**flow, "rules": flow["rules"][:1]}) == []

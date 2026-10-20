@@ -208,6 +208,36 @@ def standards_index() -> dict[str, dict]:
     return index
 
 
+def chain_flows(rules: list[dict], flow: dict | None = None, max_depth: int = 3) -> list[dict]:
+    """공정 영향을 여러 단계로 전파한다.
+
+    판정된 규칙이 만든 확인 항목(DS-*)에 implies(그 확인이 다음 공장에서 어떤 변경에 해당하는지)가
+    있으면, 그 공장·변경 유형에서 출발하는 auto 규칙(주제 조건 없이 항상 적용)을 이어 붙인다.
+    주제 판단이 필요한 규칙은 판정 Agent 몫이므로 자동으로 잇지 않는다. 순환은 막는다."""
+    flow = flow or FLOW
+    items_meta = flow.get("item_meta", {})
+    seen = {r["id"] for r in rules}
+    chained, frontier = [], list(rules)
+    for _ in range(max_depth):
+        nxt = []
+        for rule in frontier:
+            for item_id in rule["items"]:
+                implies = items_meta.get(item_id, {}).get("implies")
+                if not implies:
+                    continue
+                for cand in flow.get("rules", []):
+                    if (cand.get("auto") and cand["id"] not in seen
+                            and cand["from_shop"] == implies["shop"]
+                            and cand["change_type"] == implies["change_type"]):
+                        seen.add(cand["id"])
+                        nxt.append({**cand, "via": rule["id"]})
+        chained += nxt
+        frontier = nxt
+        if not nxt:
+            break
+    return chained
+
+
 def parse_doc(text: str) -> tuple[dict, list[tuple[str, str, str]]]:
     """표준서 Markdown → (front-matter, [(조항 번호, 제목, 본문)])."""
     front = {}

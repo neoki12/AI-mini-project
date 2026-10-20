@@ -1,7 +1,12 @@
 {
   "version": "2026-10-20",
-  "description": "공장 간 흐름과 공정 간 영향 규칙. 한 공장의 변경이 다음 공장에서 추가로 확인해야 할 항목(DS-*)을 정의한다. QS-CM-001 조항 6이 이 파일을 근거로 공정 간 영향 검토를 요구한다.",
-  "flow": ["프레스", "차체", "도장", "의장"],
+  "description": "공장 간 흐름과 공정 간 영향 규칙. 한 공장의 변경이 다음 공장에서 추가로 확인해야 할 항목(DS-*)을 정의한다. QS-CM-001 조항 6이 이 파일을 근거로 공정 간 영향 검토를 요구한다. item_meta.implies: 그 확인 항목이 다음 공장에서 어떤 변경에 해당하는지 — auto 규칙(주제 조건 없이 항상 적용)이 있으면 다단계로 전파한다.",
+  "flow": [
+    "프레스",
+    "차체",
+    "도장",
+    "의장"
+  ],
   "items": {
     "DS-BD-01": "차체: 강판 변경에 따른 스폿 용접 조건 재검증",
     "DS-BD-02": "차체: 패널 형상 변경에 따른 조립 치수 확인",
@@ -15,28 +20,57 @@
       "from_shop": "프레스",
       "change_type": "Material",
       "subject": "강판(공급사, 재질, 두께) 변경",
-      "items": ["DS-BD-01", "DS-PT-01"]
+      "items": [
+        "DS-BD-01",
+        "DS-PT-01"
+      ]
     },
     {
       "id": "FLOW-02",
       "from_shop": "프레스",
       "change_type": "Machine",
       "subject": "패널 형상에 영향을 주는 금형 수정·교체",
-      "items": ["DS-BD-02"]
+      "items": [
+        "DS-BD-02"
+      ]
     },
     {
       "id": "FLOW-03",
       "from_shop": "차체",
       "change_type": "Material",
       "subject": "실러 또는 구조용 접착제 변경",
-      "items": ["DS-PT-02"]
+      "items": [
+        "DS-PT-02"
+      ]
     },
     {
       "id": "FLOW-04",
       "from_shop": "도장",
       "change_type": "Method",
       "subject": "도막 두께 사양 변경",
-      "items": ["DS-AS-01"]
+      "items": [
+        "DS-AS-01"
+      ]
     }
-  ]
+  ],
+  "item_meta": {
+    "DS-BD-01": {
+      "implies": {
+        "shop": "차체",
+        "change_type": "Method"
+      }
+    },
+    "DS-PT-01": {
+      "implies": {
+        "shop": "도장",
+        "change_type": "Method"
+      }
+    },
+    "DS-PT-02": {
+      "implies": {
+        "shop": "도장",
+        "change_type": "Method"
+      }
+    }
+  }
 }
