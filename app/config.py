@@ -56,6 +56,7 @@ class Settings:
             judge_conditions=_bool("JUDGE_CONDITIONS", base.judge_conditions),
             flow_impact=_bool("FLOW_IMPACT", base.flow_impact),
             validator_4m=_bool("VALIDATOR_4M", base.validator_4m),
+            rag=(os.environ["RETRIEVER"] == "rag") if os.environ.get("RETRIEVER") else base.rag,
         )
         return cls(
             llm_backend=os.environ.get("LLM_BACKEND", defaults.llm_backend),

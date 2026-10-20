@@ -41,8 +41,10 @@ class AgentState(TypedDict, total=False):
     proposed_tasks: list
     tasks: list[dict]
     documents: list[dict]
+    rag_covered: list[str]   # RAG 검색으로 대신한 문서 task id
     findings: list[dict]
     field_warnings: list[str]
+    search_warnings: list[str]
     retry_count: int
     replan_rounds: int
     replan_needed: bool
@@ -132,14 +134,32 @@ async def gate_node(state: AgentState, deps: SupervisorDeps) -> dict:
             "events": [{"type": "GateApplied", "added": added, "removed": removed}]}
 
 
-async def standards_node(state: AgentState, deps: SupervisorDeps) -> dict:
-    """Standards Agent — 아직 읽지 않은 문서 task만 MCP Resource로 읽는다."""
-    done = {d["task_id"] for d in state.get("documents", [])}
+async def standards_node(state: AgentState, deps: SupervisorDeps,
+                         allow_rag: bool = True) -> dict:
+    """Standards Agent — 아직 읽지 않은 문서 task를 처리한다.
+
+    - 키워드 방식: 공통 규정·공장 표준·검사 기준을 MCP Resource로 통째로 읽는다
+    - RAG 방식(features.rag): 공통 규정만 통째로 읽고(등급·현장 데이터 규칙의 근거), 공장 문서는
+      search_standards로 요청과 가까운 조항만 가져온다
+    - 재조사(standards_gap)는 allow_rag=False — 검색으로 부족했던 공정 표준은 원문 전체를 읽는다"""
+    done = {d["task_id"] for d in state.get("documents", [])} | set(state.get("rag_covered", []))
     pending = [t for t in state["tasks"] if t["kind"] in RESOURCE_KINDS and t["id"] not in done]
     if not pending:
         return {"events": [{"type": "ResearchSkipped", "agent": "standards"}]}
-    documents, events = await research.fetch_documents(deps.mcp, pending)
-    return {"documents": state.get("documents", []) + documents, "events": events}
+    use_rag = allow_rag and deps.features.rag
+    to_read = [t for t in pending if not use_rag or t["target"] == COMMON]
+    to_search = [t for t in pending if use_rag and t["target"] != COMMON]
+    documents, events = (await research.fetch_documents(deps.mcp, to_read)) if to_read else ([], [])
+    update: dict = {}
+    if to_search:
+        found, search_events, warning = await research.search_documents(
+            deps.mcp, state["query"], state["classification"])
+        documents += found
+        events += search_events
+        update["rag_covered"] = state.get("rag_covered", []) + [t["id"] for t in to_search]
+        if warning:   # field 노드와 병렬 실행되므로 field_warnings와 다른 키에 쓴다
+            update["search_warnings"] = [warning]
+    return {**update, "documents": state.get("documents", []) + documents, "events": events}
 
 
 async def field_node(state: AgentState, deps: SupervisorDeps) -> dict:
@@ -177,7 +197,7 @@ async def replan_check_node(state: AgentState, deps: SupervisorDeps) -> dict:
                 "replan_needed": True,
                 "events": [{"type": "ReplanCheck", "round": rounds, "is_sufficient": False,
                             "gap_task": gap["id"], "target": shop}]}
-    warnings = list(state.get("field_warnings", []))
+    warnings = list(state.get("search_warnings", [])) + list(state.get("field_warnings", []))
     documents = state.get("documents", [])
     read_ok = {(d["doc_type"], d["target"]) for d in documents if d["found"]}
     warnings += [f"{d['target']} {'공정 표준' if d['doc_type'] == 'standard' else '검사 기준'} "
@@ -285,7 +305,7 @@ def build_graph(deps: SupervisorDeps):
     for name, fn in [("route", route_node), ("chat_answer", chat_answer_node),
                      ("classify", classify_node), ("plan", plan_node), ("gate", gate_node),
                      ("standards", standards_node), ("field", field_node),
-                     ("standards_gap", standards_node),
+                     ("standards_gap", partial(standards_node, allow_rag=False)),
                      ("replan_check", replan_check_node), ("judge", judge_node),
                      ("assess", assess_node), ("write", write_node),
                      ("validate", validate_node), ("finalize", finalize_node)]:

@@ -15,7 +15,7 @@ NODES: dict[str, tuple[str, str]] = {
     "classify": ("Classifier", "변경 내용을 분류하고 있어요 (공장, 변경 유형, 설비·라인)"),
     "plan": ("Planner", "표준 검토 절차에 따라 조사 계획을 세우고 있어요"),
     "gate": ("권위 게이트", "필수 조사가 빠지지 않았는지 확인하고 있어요"),
-    "standards": ("Standards", "공정 표준과 검사 기준을 읽고 있어요"),
+    "standards": ("Standards", "공정 표준과 검사 기준을 찾고 있어요"),
     "standards_gap": ("Standards", "부족한 공정 표준을 추가로 찾고 있어요"),
     "field": ("Field Data", "설비와 라인 상태를 조회하고 있어요"),
     "replan_check": ("Supervisor", "조사 결과가 충분한지 점검하고 있어요"),
@@ -69,6 +69,12 @@ def _message(ev: dict[str, Any]) -> str | None:
                 return f"{ev.get('target')} {KIND_KO[ev['source']]} 문서를 찾지 못했어요"
             return f"읽음: {ev.get('doc_id')} Rev.{ev.get('rev')} 「{ev.get('title')}」"
         return f"{ev.get('summary') or ev.get('target')}{retry}"
+    if t == "RetrievalCompleted":
+        if ev.get("failed"):
+            return "표준서 검색을 수행하지 못했어요 (임베딩·MCP 오류)"
+        hits = ev.get("hits", [])
+        return (f"표준서 검색(RAG): 조항 {ev.get('chunk_count')}개 중 관련 {len(hits)}개 — "
+                f"{', '.join(hits)}" if hits else "표준서 검색(RAG): 관련 조항을 찾지 못했어요")
     if t == "ResearchSkipped":
         return "조사할 항목이 없어 건너뛰었어요"
     if t == "ReplanCheck":

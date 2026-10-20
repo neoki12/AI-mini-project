@@ -86,7 +86,20 @@ def test_research_agents_run_in_parallel_step(improved):
     """standards와 field 노드가 같은 단계에서 실행돼 replan_check 전에 둘 다 끝난다."""
     _, result = improved[7]   # case-08: 문서 + 설비 + 라인
     sources = {e["source"] for e in result["events"] if e["type"] == "TaskCompleted"}
-    assert sources == {"standard", "inspection", "equipment", "production"}
+    assert sources == {"standard", "equipment", "production"}   # 공장 문서는 RAG 검색으로
+    assert any(e["type"] == "RetrievalCompleted" for e in result["events"])
+
+
+def test_rag_reads_fewer_clauses_than_keyword(improved, baseline):
+    """RAG는 공장 문서를 통째로 읽지 않고 관련 조항만 가져온다 — 판정·작성 입력이 줄어든다."""
+    def clauses(result):
+        return sum(len(d["clauses"]) for d in result["documents"] if d["found"])
+    rag_total = sum(clauses(r) for _, r in improved)
+    keyword_total = sum(clauses(r) for _, r in baseline)
+    assert rag_total < keyword_total
+    for case, result in improved:   # 공통 규정은 항상 전체를 읽는다
+        common = next(d for d in result["documents"] if d["doc_id"] == "QS-CM-001")
+        assert len(common["clauses"]) == 6, case["id"]
 
 
 def test_baseline_scores_lower_than_improved(improved, baseline):

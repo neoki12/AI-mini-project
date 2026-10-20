@@ -17,11 +17,12 @@ class Features:
     judge_conditions: bool = True   # 조건부 조항을 Agent가 판정 (끄면 문서의 모든 항목 나열)
     flow_impact: bool = True        # 다음 공정 영향(DS-*) 도출
     validator_4m: bool = True       # 항목 누락 탐지 (끄면 길이·번호만 보는 범용 검증)
+    rag: bool = True                # 표준서 조항 RAG 검색 (끄면 공장 문서 전체를 키워드 매핑으로 읽음)
 
     @classmethod
     def baseline(cls) -> "Features":
         return cls(gate_4m=False, judge_conditions=False, flow_impact=False,
-                   validator_4m=False)
+                   validator_4m=False, rag=False)
 
 
 @dataclass

@@ -1,6 +1,7 @@
 """조사 Agent 2종 — Supervisor가 LangGraph에서 병렬로 실행한다 (Wave 10b).
 
-- Standards Agent  : 표준서·검사 기준을 MCP Resource로 읽는다
+- Standards Agent  : 표준서·검사 기준을 MCP Resource로 읽는다(키워드 방식), 또는 공통 규정만
+                     전체를 읽고 공장 조항은 MCP Tool search_standards로 의미 검색한다(RAG 방식)
 - Field Data Agent : 설비·라인 상태를 MCP Tool로 조회하고(Wave 9 재시도), 현장 데이터
                      항목(③ EXT-EQ-01, EXT-LOT-01)을 코드 규칙으로 판정한다
 
@@ -14,6 +15,7 @@ URI나 서버를 하드코딩하지 않고, resource는 이름으로 연결된 �
 import asyncio
 
 import logging
+import re
 
 from ..domain_4m import FIELD_ITEMS, SHOP_SLUGS, lines_of, parse_doc
 from ..mcp_client import MCP_REQUEST_ERRORS
@@ -56,6 +58,42 @@ async def fetch_documents(mcp, tasks: list[dict]) -> tuple[list[dict], list[dict
                "failed": d["error"] is not None,
                "doc_id": d["doc_id"], "rev": d["rev"], "title": d["title"]} for d in documents]
     return list(documents), events
+
+
+RAG_TOP_K = 4   # 평가 10건에서 근거 조항 8/8을 찾은 최소 k (bge-m3, fake 모두)
+
+
+async def search_documents(mcp, query: str, classification: dict,
+                           k: int = RAG_TOP_K) -> tuple[list[dict], list[dict], str | None]:
+    """공장 조항을 RAG로 검색해 문서 단위로 묶는다. (documents, events, 실패 경고).
+
+    검색 결과는 fetch_documents와 같은 문서 형식으로 돌려준다 — 조항이 일부만 들어 있을 뿐
+    이후 판정·근거 인용 단계는 키워드 방식과 똑같이 동작한다."""
+    args = {"query": query, "k": k, "change_types": classification.get("change_types", [])}
+    if classification.get("shop"):
+        args["shop"] = classification["shop"]
+    try:
+        result, retries = await with_retry(mcp.call_tool, "search_standards", args)
+    except MCP_REQUEST_ERRORS as exc:
+        logger.warning("standards search failed: %s", exc)
+        return [], [{"type": "RetrievalCompleted", "hits": [], "k": k, "failed": True}], \
+            "표준서 검색을 수행하지 못했습니다."
+    by_doc: dict[str, dict] = {}
+    for hit in result["hits"]:
+        doc = by_doc.setdefault(hit["doc_id"], {
+            "task_id": f"rag-{hit['doc_id']}", "doc_type": hit["doc_type"],
+            "target": hit["shop"], "found": True, "doc_id": hit["doc_id"], "rev": hit["rev"],
+            "title": hit["title"], "clauses": [], "error": None, "retrieved": True})
+        doc["clauses"].append({"no": hit["clause"], "title": hit["clause_title"],
+                               "text": hit["text"], "score": hit["score"]})
+    for doc in by_doc.values():
+        doc["clauses"].sort(key=lambda c: [int(x) if x.isdigit() else x
+                                           for x in re.split(r"(\d+)", c["no"])])
+    event = {"type": "RetrievalCompleted", "k": k, "retries": retries,
+             "embedding": result.get("embedding"), "chunk_count": result.get("chunk_count"),
+             "hits": [f"{h['doc_id']} 조항 {h['clause']}" for h in result["hits"]],
+             "top_score": result["hits"][0]["score"] if result["hits"] else None}
+    return list(by_doc.values()), [event], None
 
 
 async def fetch_field_data(mcp, tasks: list[dict]) -> tuple[list[dict], int, list[dict],
