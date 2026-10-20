@@ -266,7 +266,7 @@ async def assess_node(state: AgentState, deps: SupervisorDeps) -> dict:
              if deps.features.judge_conditions else [])
     checklist = assessor.build_checklist(c, state["judged"], field,
                                          gate_4m=deps.features.gate_4m)
-    grading = assessor.grade(c, checklist)
+    grading = assessor.grade(c, checklist, state["query"])
     layers = {}
     for item in checklist:
         layers[item["layer"]] = layers.get(item["layer"], 0) + 1

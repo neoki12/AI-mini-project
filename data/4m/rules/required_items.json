@@ -17,14 +17,59 @@
     "MET-01": "변경 조건 검증 시험"
   },
   "rules": {
-    "Man": ["COM-05", "MAN-01", "MAN-02", "MAN-03"],
-    "Machine": ["COM-01", "COM-02", "COM-03", "COM-04", "COM-05", "COM-06", "MAC-01"],
-    "Material": ["COM-01", "COM-02", "COM-04", "COM-05", "MAT-01", "MAT-02"],
-    "Method": ["COM-01", "COM-02", "COM-03", "COM-04", "COM-05", "COM-06", "MET-01"]
+    "Man": [
+      "COM-05",
+      "MAN-01",
+      "MAN-02",
+      "MAN-03"
+    ],
+    "Machine": [
+      "COM-01",
+      "COM-02",
+      "COM-03",
+      "COM-04",
+      "COM-05",
+      "COM-06",
+      "MAC-01"
+    ],
+    "Material": [
+      "COM-01",
+      "COM-02",
+      "COM-04",
+      "COM-05",
+      "MAT-01",
+      "MAT-02"
+    ],
+    "Method": [
+      "COM-01",
+      "COM-02",
+      "COM-03",
+      "COM-04",
+      "COM-05",
+      "COM-06",
+      "MET-01"
+    ]
   },
   "grades": {
     "A": "품질본부 승인 — 안전 체결부(QS-AS-001 조항 2) 또는 법규 관련 부품이 걸린 변경",
     "B": "공장 품질팀 승인 — A등급이 아닌 Machine, Material, Method 변경",
     "C": "공장 자체 관리 — A등급이 아닌 Man 단독 변경"
+  },
+  "grade_a": {
+    "items": [
+      "EXT-AS-01",
+      "EXT-AS-02"
+    ],
+    "items_reason": "안전 체결부 항목 해당 (QS-AS-001 조항 2)",
+    "regulated_parts": [
+      "전조등",
+      "등화장치",
+      "배출가스",
+      "번호판",
+      "속도계",
+      "경음기",
+      "후사경"
+    ],
+    "regulated_reason": "법규 관련 부품 변경 (QS-CM-001 조항 2)"
   }
 }
