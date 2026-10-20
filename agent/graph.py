@@ -25,7 +25,7 @@ from langgraph.graph import END, StateGraph
 from .agents import assessor, chat, classifier, judge, planner, research, router, validator
 from .agents import writer as writer_agent
 from .deps import SupervisorDeps
-from .domain_4m import COMMON, EQUIPMENT, LINES, domain_evidence
+from .domain_4m import COMMON, EQUIPMENT, LINES, detect_injection, domain_evidence
 
 RESOURCE_KINDS = ("standard", "inspection")
 TOOL_KINDS = ("equipment", "production")
@@ -38,6 +38,7 @@ class AgentState(TypedDict, total=False):
     forced_route: str      # API가 경로를 지정한 경우 (POST /api/v1/reviews → "review")
     route: str
     classification: dict
+    injection: list[str]     # 요청에서 찾은 지시 의심 문구 (프롬프트 인젝션)
     proposed_tasks: list
     tasks: list[dict]
     documents: list[dict]
@@ -120,9 +121,12 @@ async def chat_answer_node(state: AgentState, deps: SupervisorDeps) -> dict:
 async def classify_node(state: AgentState, deps: SupervisorDeps) -> dict:
     """Classifier Agent — 공장, 변경 유형, 설비·라인 식별."""
     result, usage, fallback = await classifier.classify(deps.fast_llm, state["query"])
-    return {"classification": result, **_spend(state, usage),
-            "events": [{"type": "Classified", **result}] + _fallback_event("classifier",
-                                                                          fallback)}
+    injection = detect_injection(state["query"])
+    events = [{"type": "Classified", **result}] + _fallback_event("classifier", fallback)
+    if injection:
+        events.append({"type": "InjectionSuspected", "phrases": injection})
+    return {"classification": result, "injection": injection, **_spend(state, usage),
+            "events": events}
 
 
 async def plan_node(state: AgentState, deps: SupervisorDeps) -> dict:
@@ -223,6 +227,9 @@ async def replan_check_node(state: AgentState, deps: SupervisorDeps) -> dict:
                         "공장(프레스·차체·도장·의장)이나 설비를 적어 다시 요청해 주세요.")
     elif not has_standard:
         warnings.append(f"{shop} 공장의 공정 표준을 찾지 못했습니다.")
+    if state.get("injection"):
+        warnings.append("요청에 Agent에게 판단을 지시하는 듯한 문구가 있어 조건 판정을 규칙으로 대체했습니다"
+                        f" ({', '.join(state['injection'])}). 결과를 직접 확인하세요.")
     if state["classification"].get("change_types_source") == "기본값":
         warnings.append("변경 유형(작업자·설비·재료·공법)을 특정하지 못했습니다.")
     classification = {**state["classification"], "shop": shop}
@@ -236,7 +243,8 @@ async def judge_node(state: AgentState, deps: SupervisorDeps) -> dict:
     documents = [d for d in state.get("documents", []) if d["found"]]
     result = await judge.judge(deps.fast_llm, state["query"], state["classification"],
                                documents, enabled=deps.features.judge_conditions,
-                               flow_enabled=deps.features.flow_impact)
+                               flow_enabled=deps.features.flow_impact,
+                               distrust_llm=bool(state.get("injection")))
     event = {"type": "ConditionsJudged", "candidates": result["candidate_count"],
              "applicable_items": [c["id"] for c in result["items"]],
              "applicable_flows": [r["id"] for r in result["flows"]],

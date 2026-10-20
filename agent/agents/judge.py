@@ -39,7 +39,7 @@ def document_candidates(documents: list[dict], *, all_ids: bool = False) -> list
 
 
 async def judge(llm: LLMHandle, query: str, classification: dict, documents: list[dict],
-                *, enabled: bool, flow_enabled: bool) -> dict:
+                *, enabled: bool, flow_enabled: bool, distrust_llm: bool = False) -> dict:
     """{"items": [후보 dict], "flows": [규칙 dict], "usage", "fallback", "candidates"}."""
     flows = (flow_candidates(classification.get("shop"), classification["change_types"])
              if flow_enabled else [])
@@ -49,6 +49,10 @@ async def judge(llm: LLMHandle, query: str, classification: dict, documents: lis
                 "candidate_count": len(items) + len(flows)}
 
     items = document_candidates(documents)
+    if distrust_llm:   # 요청에 지시 의심 문구 — LLM 판정을 믿지 않고 후보를 전부 포함(보수적)
+        return {"items": items, "flows": flows, "usage": None,
+                "fallback": "요청에 지시 의심 문구가 있어 LLM 판정 대신 후보 전부 포함",
+                "candidate_count": len(items) + len(flows), "reasons": {}, "unanswered": []}
     if not items and not flows:
         return {"items": [], "flows": [], "usage": None, "fallback": None,
                 "candidate_count": 0}

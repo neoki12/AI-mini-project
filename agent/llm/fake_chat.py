@@ -42,6 +42,13 @@ def _section(text: str, title: str) -> str:
     return m.group(1).strip() if m else ""
 
 
+def _request(user: str) -> str:
+    """'## 변경 요청' 섹션의 <request> 태그 안 (사용자 원문)."""
+    section = _section(user, "변경 요청")
+    m = re.search(r"<request>\n?(.*?)\n?</request>", section, re.S)
+    return m.group(1).strip() if m else section
+
+
 def _field(section: str, name: str) -> list[str]:
     m = re.search(rf"^{name}: (.*)$", section, re.M)
     if not m or m.group(1).strip() in ("", "없음"):
@@ -54,12 +61,12 @@ def _matches(query: str, groups: list[list[str]]) -> bool:
 
 
 def _router(user: str) -> str:
-    query = _section(user, "변경 요청") or user
+    query = _request(user) or user
     return json.dumps({"route": "review" if re.search(REVIEW_PATTERN, query) else "chat"})
 
 
 def _classifier(user: str) -> str:
-    query = _section(user, "변경 요청")
+    query = _request(user)
     return json.dumps({"shop": guess_shop(query), "change_types": guess_change_types(query),
                        "equipment_ids": find_equipment_ids(query),
                        "lines": [l for l in find_lines(query) if l in query]},
@@ -79,7 +86,7 @@ def _planner(user: str) -> str:
 
 
 def _judge(user: str) -> str:
-    query = _section(user, "변경 요청")
+    query = _request(user)
     ids = re.findall(r"^- ((?:EXT-[A-Z]+|FLOW)-\d+) \|", _section(
         user, "판정할 후보 (모든 후보에 대해 답할 것)"), re.M)
     decisions = []

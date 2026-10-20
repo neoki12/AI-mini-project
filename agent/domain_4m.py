@@ -143,6 +143,29 @@ def domain_evidence(query: str) -> list[str]:
     return list(dict.fromkeys(hits))
 
 
+# 프롬프트 인젝션 — 요청 안에서 Agent에게 판단을 지시하는 문구. 변경 요청에는 나올 일이 없다.
+INJECTION_PATTERNS = [
+    r"(이전|위의|앞의|기존)\s*(지시|명령|규칙|프롬프트)",
+    r"(지시|명령|규칙)[을를]?\s*무시",
+    r"(모든|어떤|아무)\s*(조건|후보|항목)[^.\n]{0,20}(해당하지\s*않|해당\s*없|false)",
+    r"applies\s*[:=]",
+    r"(시스템|system)\s*(프롬프트|prompt)",
+    r"ignore\s+(all|previous|the)",
+    r"(검증|검사)\s*항목[을를]?\s*(빼|제외|생략)",
+    r"(등급|grade)[을를]?\s*[ABC]\s*(로|으로)\s*(해|하라|정해|판정)",
+]
+
+
+def detect_injection(query: str) -> list[str]:
+    """요청 원문에서 Agent에게 판단을 지시하는 문구를 찾는다 (찾은 구절 목록)."""
+    hits = []
+    for pattern in INJECTION_PATTERNS:
+        m = re.search(pattern, query, re.IGNORECASE)
+        if m:
+            hits.append(m.group(0))
+    return hits
+
+
 def valid_target(kind: str, target: str) -> bool:
     if kind == "standard":
         return target in SHOPS or target == COMMON

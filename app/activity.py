@@ -60,6 +60,9 @@ def _message(ev: dict[str, Any]) -> str | None:
         if ev.get("lines"):
             text += f" · 라인 {', '.join(ev['lines'])}"
         return text
+    if t == "InjectionSuspected":
+        return (f"요청에 Agent에게 지시하는 듯한 문구가 있어요 ({', '.join(ev.get('phrases', []))}) — "
+                "조건 판정은 규칙으로 대체해요")
     if t == "PlanCreated":
         return f"조사 계획 {ev.get('task_count', 0)}건을 세웠어요"
     if t == "GateApplied":
