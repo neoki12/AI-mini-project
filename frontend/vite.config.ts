@@ -9,5 +9,5 @@ export default defineConfig({
     port: 5173,
     proxy: { '/api': { target: 'http://127.0.0.1:8100', changeOrigin: true } },
   },
-  test: { environment: 'jsdom' },
+  test: { environment: 'jsdom', include: ['src/**/*.test.ts'] },   // e2e/는 Playwright가 실행
 })
