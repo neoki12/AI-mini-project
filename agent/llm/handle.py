@@ -5,9 +5,13 @@
   JSON을 뽑아 스키마로 검증한다. 실패하면 StructuredOutputError — 각 Agent가 코드 레벨
   fallback으로 받는다(W6 정신: 모델 출력을 그대로 믿지 않는다).
 - text(): 자유 텍스트. on_token이 있으면 astream으로 토큰을 즉시 흘려보낸다(Wave 3).
+- 모든 호출에 시간 제한(timeout)을 건다. 구조화 출력이 시간을 넘기면 StructuredOutputError —
+  Agent가 규칙으로 fallback해 검토는 계속된다. 텍스트(보고서)가 넘기면 asyncio.TimeoutError —
+  API가 502(agent_failed)로 알린다.
 - 모든 호출은 usage(model, tokens, usd)를 돌려준다. 토큰은 응답의 usage_metadata(실측)를
   쓰고, 없으면 글자 수로 추정한다. usd는 '가상 단가 × 토큰'이다(Wave 10a 비교용).
 """
+import asyncio
 import json
 import re
 from typing import TypeVar
@@ -37,11 +41,12 @@ def _extract_json(text: str) -> str:
 
 class LLMHandle:
     def __init__(self, name: str, model: BaseChatModel, usd_per_1k_tokens: float,
-                 native_structured: bool):
+                 native_structured: bool, timeout: float = 120.0):
         self.name = name
         self.model = model
         self.usd_per_1k = usd_per_1k_tokens
         self.native_structured = native_structured
+        self.timeout = timeout
 
     def _usage(self, message: AIMessage | None, prompt: str, completion: str) -> dict:
         meta = getattr(message, "usage_metadata", None) or {}
@@ -50,6 +55,12 @@ class LLMHandle:
                 "usd": round(tokens / 1000 * self.usd_per_1k, 6)}
 
     async def structured(self, system: str, user: str, schema: type[T]) -> tuple[T, dict]:
+        try:
+            return await asyncio.wait_for(self._structured(system, user, schema), self.timeout)
+        except (asyncio.TimeoutError, TimeoutError) as exc:
+            raise StructuredOutputError(f"시간 초과 ({self.timeout:.0f}초)") from exc
+
+    async def _structured(self, system: str, user: str, schema: type[T]) -> tuple[T, dict]:
         messages = [SystemMessage(system), HumanMessage(user)]
         if self.native_structured:
             runnable = self.model.with_structured_output(schema, include_raw=True)
@@ -68,6 +79,9 @@ class LLMHandle:
         return parsed, self._usage(raw, system + user, str(raw.content))
 
     async def text(self, system: str, user: str, on_token=None) -> tuple[str, dict]:
+        return await asyncio.wait_for(self._text(system, user, on_token), self.timeout)
+
+    async def _text(self, system: str, user: str, on_token=None) -> tuple[str, dict]:
         messages = [SystemMessage(system), HumanMessage(user)]
         if on_token is None:
             raw = await self.model.ainvoke(messages)
