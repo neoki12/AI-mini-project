@@ -34,4 +34,12 @@ describe('buildSteps', () => {
     expect(steps.map((s) => [s.agent, s.title, s.status])).toEqual([
       ['Classifier', '분류 결과: 차체', 'done'], ['Planner', '조사 계획 3건', 'done']])
   })
+
+  it('대기열 단계는 실제 검토가 시작되면 완료로 바뀐다', () => {
+    const waiting = buildSteps([{ type: 'Queued', message: '대기 1번째' }])
+    expect(waiting[0]).toMatchObject({ agent: '대기열', status: 'running' })
+    const started = buildSteps([{ type: 'Queued', message: '대기 1번째' },
+      { type: 'NodeStarted', node: 'route', agent: 'Router', message: '판단 중' }])
+    expect(started.map((st) => st.status)).toEqual(['done', 'running'])
+  })
 })

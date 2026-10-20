@@ -36,6 +36,7 @@ class Settings:
     openai_fast_model: str = "gpt-4o-mini"
     openai_quality_model: str = "gpt-4o"
     judge_model: str = "quality"              # 조건 판정 모델: quality | fast
+    max_concurrent_reviews: int = 2           # 동시에 실행하는 검토 수 (나머지는 대기열)
     mcp_flaky_first_call: bool = False        # Wave 9 데모용 강제 타임아웃 — 데모 때만 MCP_FLAKY_FIRST_CALL=1
     features: Features = field(default_factory=Features)   # Baseline/Improved 기능 스위치
     db_path: Path = PROJECT_DIR / "session.db"
@@ -70,6 +71,8 @@ class Settings:
             openai_quality_model=os.environ.get("OPENAI_QUALITY_MODEL",
                                                 defaults.openai_quality_model),
             judge_model=os.environ.get("JUDGE_MODEL", defaults.judge_model),
+            max_concurrent_reviews=max(1, int(os.environ.get(
+                "MAX_CONCURRENT_REVIEWS", defaults.max_concurrent_reviews))),
             mcp_flaky_first_call=_bool("MCP_FLAKY_FIRST_CALL", defaults.mcp_flaky_first_call),
             features=features,
             db_path=Path(os.environ.get("APP_DB_PATH", str(defaults.db_path))),

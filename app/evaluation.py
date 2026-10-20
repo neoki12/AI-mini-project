@@ -125,6 +125,10 @@ class EvaluationManager:
         graph = build_graph(deps)
 
         async def target(inputs: dict) -> dict:
+            async with self.runtime.slots:   # 사용자 검토와 같은 동시 실행 슬롯을 쓴다
+                return await run_case(inputs)
+
+        async def run_case(inputs: dict) -> dict:
             started = time.perf_counter()
             state = await graph.ainvoke(
                 {"query": inputs["message"], "thread_id": f"eval-{uuid.uuid4().hex[:8]}",

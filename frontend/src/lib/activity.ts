@@ -40,6 +40,11 @@ export function buildSteps(events: StreamEvent[]): ActivityStep[] {
 
   for (const e of events) {
     if (IGNORED.has(e.type)) continue
+    if (e.type === 'Queued') {   // 동시 실행 대기 — 실제 검토가 시작되면 완료로 바뀐다
+      steps.push({ key: `queue-${steps.length}`, node: 'queue', agent: '대기열',
+        title: e.message ?? '대기 중', status: 'running', elapsedMs: null, details: [] })
+      continue
+    }
     if (e.type === 'Error') {
       steps.push({ key: `error-${steps.length}`, node: 'error', agent: '오류', title: e.message ?? '오류',
         status: 'error', elapsedMs: null, details: [] })
@@ -47,6 +52,7 @@ export function buildSteps(events: StreamEvent[]): ActivityStep[] {
     }
     const node = e.node ?? 'unknown'
     if (e.type === 'NodeStarted') {
+      steps.filter((st) => st.node === 'queue' && st.status === 'running').forEach((st) => { st.status = 'done' })
       steps.push({ key: `${node}-${steps.length}`, node, agent: e.agent ?? node,
         title: e.message ?? `${node} 실행 중`, status: 'running', elapsedMs: null, details: [] })
       continue

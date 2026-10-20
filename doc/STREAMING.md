@@ -43,6 +43,7 @@ data: [DONE]
 
 | type | 언제 | 주요 필드 |
 |---|---|---|
+| `Queued` | 동시 실행 슬롯이 없어 대기할 때 (실행 전에 한 번) | `position`(대기 순번), `max_concurrent` |
 | `NodeStarted` | Agent(노드)가 시작할 때 | `node`, `agent`, `message`(지금 하는 일) |
 | `NodeFinished` | Agent가 끝날 때 | `node`, `elapsed_ms`, `error` |
 | `RouteDecided` | 라우팅 결정 | `route`(chat/review), `forced` |

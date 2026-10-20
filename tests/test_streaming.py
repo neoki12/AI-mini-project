@@ -67,3 +67,65 @@ def test_client_disconnect_cancels_run_and_skips_save():
     assert json.loads(first[6:])["type"] == "NodeStarted"
     assert runtime.cancelled is True     # 그래프 실행이 취소됐다
     assert saved == []                   # 미완성 검토는 저장하지 않는다
+
+
+def test_concurrent_reviews_are_limited_and_queued(tmp_path, monkeypatch):
+    """동시 실행 수를 넘는 검토는 Queued를 먼저 받고, 실제 실행은 한도를 넘지 않는다."""
+    from app.config import Settings
+    from app.runtime import AgentRuntime
+
+    runtime = AgentRuntime(Settings(llm_backend="fake", max_concurrent_reviews=1,
+                                    db_path=tmp_path / "c.db"))
+    active = {"now": 0, "max": 0}
+
+    async def fake_graph(message, thread_id, forced_route):
+        active["now"] += 1
+        active["max"] = max(active["max"], active["now"])
+        await asyncio.sleep(0.1)
+        active["now"] -= 1
+        yield {"type": "FinalAnswer", "reply": message}
+
+    monkeypatch.setattr(runtime, "_stream_graph", fake_graph)
+
+    async def collect(i):
+        return [e async for e in runtime.stream(f"요청 {i}", f"t-{i}")]
+
+    async def main():
+        return await asyncio.gather(*(collect(i) for i in range(3)))
+    results = asyncio.run(main())
+    assert active["max"] == 1
+    queued = [r[0] for r in results if r[0]["type"] == "Queued"]
+    assert len(queued) == 2 and {q["position"] for q in queued} <= {1, 2}
+    assert all(r[-1]["type"] == "FinalAnswer" for r in results)
+
+
+def test_cancel_while_queued_releases_nothing(tmp_path, monkeypatch):
+    """대기 중에 연결이 끊겨도 슬롯이 새거나 대기 수가 꼬이지 않는다."""
+    from app.config import Settings
+    from app.runtime import AgentRuntime
+
+    runtime = AgentRuntime(Settings(llm_backend="fake", max_concurrent_reviews=1,
+                                    db_path=tmp_path / "q.db"))
+
+    async def slow_graph(message, thread_id, forced_route):
+        await asyncio.sleep(0.3)
+        yield {"type": "FinalAnswer", "reply": message}
+
+    monkeypatch.setattr(runtime, "_stream_graph", slow_graph)
+
+    async def main():
+        holder = asyncio.create_task(anext(runtime.stream("A", "t-a")))
+        await asyncio.sleep(0.05)
+        waiter_gen = runtime.stream("B", "t-b")
+        first = await anext(waiter_gen)                  # Queued
+        pending = asyncio.create_task(anext(waiter_gen))  # 슬롯 대기 중
+        await asyncio.sleep(0.05)
+        pending.cancel()
+        try:
+            await pending
+        except asyncio.CancelledError:
+            pass
+        await holder
+        return first, runtime._waiting, runtime.slots.locked()
+    first, waiting, _ = asyncio.run(main())
+    assert first["type"] == "Queued" and waiting == 0

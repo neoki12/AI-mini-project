@@ -6,6 +6,7 @@ lifespan에서 start()로 MCP 연결·LLM·그래프·저장소를 한 번만 �
 - run()    : 그래프를 끝까지 실행하고 최종 상태를 돌려준다 (POST /chat, /reviews)
 - stream() : 그래프 실행 과정을 이벤트 dict로 흘려보낸다 (GET /chat/stream, Wave 3)
 """
+import asyncio
 import time
 import uuid
 from collections.abc import AsyncIterator
@@ -44,6 +45,8 @@ class AgentRuntime:
         self.graph = None
         self.reviews: SqliteReviewStore | None = None
         self.instance_id: int | None = None
+        self._slots = asyncio.Semaphore(settings.max_concurrent_reviews)
+        self._waiting = 0
 
     async def start(self) -> None:
         global CREATION_COUNT
@@ -110,10 +113,20 @@ class AgentRuntime:
         }
         return config, (str(run_id) if langsmith_utils.tracing_is_enabled() else None)
 
+    @property
+    def slots(self) -> asyncio.Semaphore:
+        """동시 실행 슬롯 — 검토·대화·평가가 함께 쓴다 (LLM 서버에 요청이 몰리지 않게)."""
+        return self._slots
+
     async def run(self, message: str, thread_id: str,
                   forced_route: str | None = None) -> tuple[dict, str | None]:
         """그래프를 끝까지 실행한다. forced_route='review'면 라우팅 LLM을 건너뛴다.
-        (최종 상태, LangSmith 실행 ID)를 돌려준다."""
+        (최종 상태, LangSmith 실행 ID)를 돌려준다. 동시 실행 슬롯이 빌 때까지 기다린다."""
+        async with self._slots:
+            return await self._run(message, thread_id, forced_route)
+
+    async def _run(self, message: str, thread_id: str,
+                   forced_route: str | None) -> tuple[dict, str | None]:
         deps = self.deps
         history = deps.session_store.load(thread_id)   # Wave 12
         config, run_id = self._trace_config(thread_id, forced_route)
@@ -128,6 +141,26 @@ class AgentRuntime:
 
     async def stream(self, message: str, thread_id: str,
                      forced_route: str | None = None) -> AsyncIterator[dict]:
+        """동시 실행 슬롯을 얻은 뒤 그래프 실행 과정을 내보낸다. 슬롯이 없으면 먼저 Queued
+        (대기 순번)를 보낸다 — 사용자가 '멈춘 것'이 아니라 '기다리는 중'임을 알 수 있게."""
+        queued = self._slots.locked()
+        if queued:
+            self._waiting += 1
+            yield {"type": "Queued", "position": self._waiting,
+                   "max_concurrent": self.settings.max_concurrent_reviews}
+        try:
+            await self._slots.acquire()   # 대기 중 연결이 끊기면 여기서 취소된다
+        finally:
+            if queued:
+                self._waiting -= 1
+        try:
+            async for event in self._stream_graph(message, thread_id, forced_route):
+                yield event
+        finally:
+            self._slots.release()
+
+    async def _stream_graph(self, message: str, thread_id: str,
+                            forced_route: str | None) -> AsyncIterator[dict]:
         """그래프 실행 과정을 이벤트로 내보낸다 (Wave 3).
 
         - NodeStarted / NodeFinished : 노드(Agent)가 시작·종료된 시점 (LangGraph "tasks" 모드)

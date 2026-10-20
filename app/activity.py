@@ -38,6 +38,9 @@ def _task_label(spec: str) -> str:
 
 def _message(ev: dict[str, Any]) -> str | None:
     t = ev.get("type")
+    if t == "Queued":
+        return (f"다른 검토가 진행 중이라 대기하고 있어요 (대기 {ev.get('position')}번째, "
+                f"동시 처리 {ev.get('max_concurrent')}건)")
     if t == "RouteDecided":
         if ev.get("route") == "chat":
             return "일반 대화로 판단했어요"
