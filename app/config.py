@@ -35,6 +35,7 @@ class Settings:
     ollama_quality_model: str = "qwen3:8b"
     openai_fast_model: str = "gpt-4o-mini"
     openai_quality_model: str = "gpt-4o"
+    judge_model: str = "quality"              # 조건 판정 모델: quality | fast
     mcp_flaky_first_call: bool = False        # Wave 9 데모용 강제 타임아웃 — 데모 때만 MCP_FLAKY_FIRST_CALL=1
     features: Features = field(default_factory=Features)   # Baseline/Improved 기능 스위치
     db_path: Path = PROJECT_DIR / "session.db"
@@ -68,6 +69,7 @@ class Settings:
             openai_fast_model=os.environ.get("OPENAI_FAST_MODEL", defaults.openai_fast_model),
             openai_quality_model=os.environ.get("OPENAI_QUALITY_MODEL",
                                                 defaults.openai_quality_model),
+            judge_model=os.environ.get("JUDGE_MODEL", defaults.judge_model),
             mcp_flaky_first_call=_bool("MCP_FLAKY_FIRST_CALL", defaults.mcp_flaky_first_call),
             features=features,
             db_path=Path(os.environ.get("APP_DB_PATH", str(defaults.db_path))),

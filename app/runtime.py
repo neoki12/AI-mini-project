@@ -58,6 +58,7 @@ class AgentRuntime:
             session_store=SqliteSessionStore(self.settings.db_path),
             version=self.settings.supervisor_version,
             features=self.settings.features,
+            judge_llm=quality_llm if self.settings.judge_model == "quality" else fast_llm,
         )
         self.graph = build_graph(self.deps) if self.deps.version == "v2" else None
         self.reviews = SqliteReviewStore(self.settings.db_path)

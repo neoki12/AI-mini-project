@@ -33,3 +33,5 @@ class SupervisorDeps:
     session_store: Any   # Wave 12 — SQLite 세션 저장소
     version: str         # Wave 14 — SUPERVISOR_VERSION (v1/v2)
     features: Features = field(default_factory=Features)
+    judge_llm: Any = None   # 조건 판정 전용 모델 (없으면 fast_llm). 판정은 등급·항목을 정하는 핵심
+                            # 단계라 quality 모델을 쓴다 — 실험: qwen2.5:7b 10/11 → qwen3:8b 11/11

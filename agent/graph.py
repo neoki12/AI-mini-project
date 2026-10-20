@@ -242,7 +242,8 @@ async def replan_check_node(state: AgentState, deps: SupervisorDeps) -> dict:
 async def judge_node(state: AgentState, deps: SupervisorDeps) -> dict:
     """Judge Agent — 조건부 조항과 공정 간 영향 규칙의 해당 여부 판정."""
     documents = [d for d in state.get("documents", []) if d["found"]]
-    result = await judge.judge(deps.fast_llm, state["query"], state["classification"],
+    result = await judge.judge(deps.judge_llm or deps.fast_llm, state["query"],
+                               state["classification"],
                                documents, enabled=deps.features.judge_conditions,
                                flow_enabled=deps.features.flow_impact,
                                distrust_llm=bool(state.get("injection")))
