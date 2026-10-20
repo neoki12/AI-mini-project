@@ -4,6 +4,7 @@
 - 응답 지연 → 시간 제한(asyncio.TimeoutError) → with_retry가 재시도
 - 요청 직렬화 잠금 없음 → 병렬 호출이 동시에 진행
 - ping → 서버별 연결 상태
+- 연결 끊김 → 한 번 재연결 후 같은 요청 재시도
 """
 import asyncio
 import time
@@ -98,3 +99,23 @@ def test_startup_failure_cleans_up_subprocesses(tmp_path):
     started = time.perf_counter()
     assert asyncio.run(main()) == {}
     assert time.perf_counter() - started < 15
+
+
+def test_reconnects_after_server_connection_is_lost():
+    """MCP 서버 연결이 끊기면 다음 요청에서 한 번 재연결한 뒤 그대로 성공한다."""
+    async def call(c):
+        await c._conns["ops"].close()   # 서버 subprocess 종료 = 연결 끊김
+        data = await c.call_tool("get_equipment_status", {"target": "BD-RB-301"})
+        return data, c.reconnects, await c.ping()
+    data, reconnects, ping = run_with_client(call)
+    assert data["found"] is True
+    assert reconnects == 1
+    assert ping == {"ops": True, "docs": True}
+
+
+def test_ping_reconnects_dead_connection():
+    async def call(c):
+        await c._conns["docs"].close()
+        return await c.ping(), c.reconnects
+    ping, reconnects = run_with_client(call)
+    assert ping == {"ops": True, "docs": True} and reconnects == 1
