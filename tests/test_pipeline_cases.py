@@ -246,3 +246,22 @@ def test_unknown_shop_review_needs_check(tmp_path):
     assert any("공장을 특정하지 못했습니다" in w for w in result["warnings"])
     assert not any("None" in w for w in result["warnings"])   # 공장 미상일 때 'None 공장…' 경고 금지
     assert result["final"].startswith("⚠️ 추가 확인 필요")
+
+
+def test_classifier_accepts_llm_shop_only_with_verified_quote():
+    """사전에 없는 표현이면 LLM 공장을 쓰되, 인용 근거가 원문에 있고 일반 단어가 아닐 때만."""
+    from agent.agents.classifier import normalize
+
+    ok = normalize({"shop": "의장", "shop_evidence": "도어 몰딩", "change_types": ["Material"]},
+                   "도어 몰딩 납품처가 바뀌었어요")
+    assert ok["shop"] == "의장" and ok["shop_source"] == "LLM(인용: 도어 몰딩)"
+    fabricated = normalize({"shop": "프레스", "shop_evidence": "프레스 라인"},
+                           "신입사원이 새로 입사했어요")          # 원문에 없는 인용
+    generic = normalize({"shop": "프레스", "shop_evidence": "공장"}, "공장 인원이 바뀌었어요")
+    assert fabricated["shop"] is None and generic["shop"] is None
+
+
+def test_expanded_shop_keywords():
+    from agent.domain_4m import guess_shop
+    assert guess_shop("가니쉬 납품처가 바뀌었어요") == "의장"
+    assert guess_shop("클리어 코트 업체를 바꾸려고 합니다") == "도장"

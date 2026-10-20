@@ -51,6 +51,8 @@ def _message(ev: dict[str, Any]) -> str | None:
     if t == "Classified":
         types = ", ".join(f"{CHANGE_TYPE_KO.get(c, c)}({c})" for c in ev.get("change_types", []))
         shop = f"{ev['shop']} 공장" if ev.get("shop") else "공장 미상(요청에 공장·설비·라인 없음)"
+        if str(ev.get("shop_source", "")).startswith("LLM"):
+            shop += f" [{ev['shop_source']}]"
         source = {"LLM": " (LLM 판단)", "기본값": " (유형 미확정)"}.get(ev.get("change_types_source"), "")
         text = f"분류 결과: {shop} · {types}{source}"
         if ev.get("equipment_ids"):

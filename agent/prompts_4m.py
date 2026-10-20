@@ -18,6 +18,8 @@ CLASSIFIER_SYSTEM = (
     "Man=작업자, Machine=설비·금형·지그·공구 자체의 교체·도입·수정, "
     "Material=강판·도료·접착제·부품·공급사 변경, Method=조건·온도·토크·순서 등 공법 변경. "
     "설비는 그대로 두고 조건만 바꾸면 Machine이 아니라 Method다. "
+    "공장은 요청에 근거가 있을 때만 고르고, 근거가 된 요청 원문의 구절을 shop_evidence에 그대로 "
+    "인용하라. 근거가 없으면 shop은 null, shop_evidence는 빈 문자열로 둔다. "
     f"요청에 나온 설비 ID와 라인 ID를 그대로 옮겨라. 알려진 설비: {', '.join(EQUIPMENT)}. "
     f"알려진 라인: {', '.join(LINES)}."
 )

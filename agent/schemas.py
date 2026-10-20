@@ -17,7 +17,9 @@ class RouteDecision(BaseModel):
 
 
 class ChangeClassification(BaseModel):
-    shop: Shop | None = Field(description="변경이 일어나는 공장")
+    shop: Shop | None = Field(description="변경이 일어나는 공장. 요청에서 알 수 없으면 null")
+    shop_evidence: str = Field(
+        default="", description="공장을 판단한 근거가 된 요청 원문의 구절 (그대로 인용, 없으면 빈 문자열)")
     change_types: list[ChangeType] = Field(
         description="해당하는 변경 유형 전부. 설비 교체와 조건 변경이 함께면 Machine, Method 둘 다")
     equipment_ids: list[str] = Field(default_factory=list,
