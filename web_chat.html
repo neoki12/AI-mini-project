@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8" />
-<title>운영 에이전트 채팅 (Vue)</title>
+<title>4M 변경 검토 채팅 (Vue)</title>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
@@ -79,7 +79,7 @@
 </head>
 <body>
 <div id="app">
-  <header>운영 인시던트 대응 에이전트 <span>{{ backendLabel }}</span></header>
+  <header>4M 변경 영향 검토 에이전트 <span>{{ backendLabel }}</span></header>
   <div id="log" ref="logEl">
     <template v-for="item in log" :key="item.id">
       <div v-if="item.kind === 'user'" class="row user">
@@ -104,7 +104,7 @@
     <input
       v-model="input"
       autocomplete="off"
-      placeholder="예: auth-service 로그인 응답이 느려졌어요. 원인 확인해주세요"
+      placeholder="예: 차체 대시 패널 라인 용접 로봇(BD-RB-301, BD-RB-302)의 용접 전류 조건을 변경합니다. 검토해주세요"
     />
     <button type="submit" :disabled="sending">보내기</button>
   </form>
@@ -114,16 +114,25 @@
 <script>
 const { createApp, ref, reactive, nextTick } = Vue;
 
+const SOURCE_LABELS = {
+  standard: '공정 표준 확인', inspection: '검사 기준 확인',
+  equipment: '설비 상태 확인', production: '라인 가동 상태 확인',
+};
+
 const STEP_LABELS = {
-  PlanCreated: e => `계획 수립: 할 일 ${e.task_count}가지${e.targets?.length ? ` (시스템: ${e.targets.join(', ')})` : ''}`,
-  GateApplied: e => e.removed_analysis_tasks ? `불필요한 작업 ${e.removed_analysis_tasks}건 제거` : null,
-  TaskCompleted: e => (e.source === 'monitoring'
-      ? `모니터링 지표 확인 (시스템: ${e.target})`
-      : `대응 매뉴얼(runbook) 조회 (장애유형: ${e.target})`) + (e.retries ? ' (재시도 성공)' : ''),
-  ReplanCheck: e => e.is_sufficient ? null : `정보 부족 → 장애유형 "${e.target}"로 추가 조사`,
-  DraftWritten: e => `답변 초안 작성 (시도 ${e.attempt})`,
-  Validation: e => e.verdict === '합격' ? '검수 통과' : '검수 반려 → 다시 작성',
-  Finalize: () => '최종 답변 완성',
+  Classified: e => `분류: ${e.shop || '공장 미상'} / ${(e.change_types || []).join(', ')}`,
+  PlanCreated: e => `계획 수립: 조사 ${e.task_count}건 제안`,
+  GateApplied: e => e.added?.length ? `권위 게이트: 빠진 필수 조사 ${e.added.length}건 추가` : null,
+  TaskCompleted: e => `${SOURCE_LABELS[e.source] || e.source} (${e.target})` + (e.retries ? ' (재시도 성공)' : ''),
+  ReplanCheck: e => e.is_sufficient ? null : `정보 부족 → "${e.target}" 공정 표준 추가 조사`,
+  ConditionsJudged: e => `조건 판정: 후보 ${e.candidates}건 중 ${e.applicable_items.length + e.applicable_flows.length}건 해당`
+    + (e.safety_forced?.length ? ` (안전 체결부 ${e.safety_forced.length}건 강제 포함)` : ''),
+  ImpactAssessed: e => `영향 평가: 검증 항목 ${e.item_count}건, 변경 등급 ${e.grade}`,
+  FallbackUsed: e => `⚠️ ${e.agent} Agent 응답 해석 실패 → 규칙으로 대체`,
+  DraftWritten: e => `검토 결과 초안 작성 (시도 ${e.attempt})`,
+  Validation: e => e.verdict === '합격' ? '검수 통과'
+    : (e.missing?.length ? `검수 반려: 항목 ${e.missing.length}건 누락 → 다시 작성` : `검수: ${e.verdict}`),
+  Finalize: e => `최종 검토 결과 완성${e.review_status ? ` (${e.review_status})` : ''}`,
 };
 
 createApp({
