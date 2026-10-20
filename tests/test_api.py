@@ -199,7 +199,7 @@ def test_llm_failure_in_stream_sends_error_event(client, monkeypatch):
 def test_health_reports_mcp_servers(client):
     body = client.get("/api/v1/health").json()
     assert body["status"] == "ok"
-    assert body["mcp_servers"]["ops"] == {"name": "capstone-4m-ops", "version": "1.1.0",
+    assert body["mcp_servers"]["ops"] == {"name": "capstone-4m-ops", "version": "1.2.0",
                                           "ok": True}
 
 

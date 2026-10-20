@@ -29,12 +29,13 @@ def test_server_identity():
 
 def test_tools_publish_input_output_schema_and_read_only_hint():
     tools = {t.name: t for t in run(_with_client(lambda c: c.list_tools()))}
-    assert set(tools) == {"get_equipment_status", "get_production_status"}
-    for tool in tools.values():
+    assert set(tools) == {"get_equipment_status", "get_production_status", "search_standards"}
+    for name, tool in tools.items():
         dumped = tool.model_dump()
         schema = dumped.get("input_schema") or dumped.get("inputSchema")
-        param = next(iter(schema["properties"].values()))
-        assert param["pattern"] == mcp_server.ID_PATTERN
+        if name != "search_standards":
+            param = next(iter(schema["properties"].values()))
+            assert param["pattern"] == mcp_server.ID_PATTERN
         assert dumped.get("output_schema") or dumped.get("outputSchema")
         hints = dumped["annotations"]
         assert (hints.get("read_only_hint") or hints.get("readOnlyHint")) is True
@@ -114,3 +115,20 @@ def test_review_prompt_renders_and_validates_arguments():
     assert "- 공장: 차체" in text and "검증 항목마다 [ID]" in text
     with pytest.raises(Exception, match="알 수 없는 공장"):
         run(_with_client(lambda c: c.get_prompt("4m_review", {"shop": "본사", "request": "x"})))
+
+
+def test_search_standards_filters_by_shop_and_finds_conditional_clause():
+    result = run(_with_client(lambda c: c.call_tool("search_standards", {
+        "query": "프레스 1라인 후드 외판 드로잉 금형을 수정하려고 합니다",
+        "shop": "프레스", "change_types": ["Machine"], "k": 4}))).structured_content
+    assert result["chunk_count"] == 41 and len(result["hits"]) == 4
+    assert {h["shop"] for h in result["hits"]} == {"프레스"}          # 다른 공장·공통 규정 제외
+    assert ("QS-PR-001", "3") in {(h["doc_id"], h["clause"]) for h in result["hits"]}
+
+
+@pytest.mark.parametrize("args", [{"query": ""}, {"query": "x", "k": 0}, {"query": "x", "k": 11},
+                                  {"query": "x", "shop": "본사"}])
+def test_search_standards_rejects_invalid_arguments(args):
+    async def call(c):
+        return await c.call_tool("search_standards", args, raise_on_error=False)
+    assert run(_with_client(call)).is_error

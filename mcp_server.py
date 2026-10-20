@@ -6,6 +6,7 @@ FastAPI 백엔드가 lifespan에서 이 파일을 subprocess(stdio)로 1회 기�
 
 - Tool     get_equipment_status   : 설비 상태 — 시점마다 달라지는 동적 조회 → Tool
 - Tool     get_production_status  : 라인 가동 상태 — 동적 조회 → Tool
+- Tool     search_standards       : 표준서 조항 RAG 검색 (bge-m3 임베딩 + Chroma, 공장·변경 유형 필터)
 - Resource std://shop-standard/{shop}        : 공장별 공정 표준 (common = 4M 공통 규정)
 - Resource std://inspection-criteria/{shop}  : 공장별 검사 기준
 - Resource rule://required-items, rule://process-flow : 규칙표, 공정 흐름 (정적 문서)
@@ -20,6 +21,7 @@ FastAPI 백엔드가 lifespan에서 이 파일을 subprocess(stdio)로 1회 기�
 데이터는 data/4m/ 아래 교육용 가상 데이터다 (data/4m/README.md 참고).
 """
 import json
+import os
 import re
 from pathlib import Path
 from typing import Annotated, Literal
@@ -29,7 +31,9 @@ from fastmcp.exceptions import PromptError, ResourceError, ToolError
 from mcp.types import ToolAnnotations
 from pydantic import BaseModel, Field
 
-SERVER_VERSION = "1.1.0"
+from rag.index import StandardsIndex, embedder_from_env
+
+SERVER_VERSION = "1.2.0"
 
 mcp = FastMCP(
     name="capstone-4m-ops",
@@ -79,6 +83,28 @@ class ProductionStatus(BaseModel):
     models: list[str] = Field(default_factory=list, description="생산 중인 차종")
     wip_bodies: int | None = Field(default=None, description="라인 안의 재공 차체 수")
     body_no_range: str | None = Field(default=None, description="재공 차체 번호 범위")
+
+
+class StandardHit(BaseModel):
+    doc_id: str
+    rev: str
+    title: str
+    shop: str
+    doc_type: Literal["standard", "inspection"]
+    clause: str
+    clause_title: str
+    text: str
+    score: float = Field(description="질의와의 유사도 (1 - 코사인 거리)")
+
+
+class StandardSearchResult(BaseModel):
+    query: str
+    shop: str | None
+    change_types: list[str]
+    k: int
+    embedding: str = Field(description="임베딩 모델")
+    chunk_count: int = Field(description="인덱스의 전체 조항 수")
+    hits: list[StandardHit]
 
 
 # ── 데이터 접근 ──────────────────────────────────────────────────────────
@@ -150,6 +176,41 @@ def get_production_status(
         return ProductionStatus(line=line, snapshot=data.get("snapshot", ""), found=False,
                                 status="unknown", note=f"등록되지 않은 라인: {line}")
     return ProductionStatus(line=line, snapshot=data.get("snapshot", ""), found=True, **info)
+
+
+_INDEX: StandardsIndex | None = None
+
+
+def _standards_index() -> StandardsIndex:
+    """첫 검색 때 한 번 만든다. RAG_INDEX_DIR=memory면 메모리(테스트), 아니면 .cache/rag에 영속."""
+    global _INDEX
+    if _INDEX is None:
+        index_dir = os.environ.get("RAG_INDEX_DIR")
+        if index_dir == "memory":
+            _INDEX = StandardsIndex(embedder_from_env(), index_dir=None, standards_dir=DATA_DIR / "standards")
+        else:
+            _INDEX = StandardsIndex(embedder_from_env(), standards_dir=DATA_DIR / "standards",
+                                    **({"index_dir": Path(index_dir)} if index_dir else {}))
+    return _INDEX
+
+
+@mcp.tool(annotations=READ_ONLY)
+def search_standards(
+    query: Annotated[str, Field(min_length=1, max_length=2000, description="변경 요청 내용")],
+    shop: Literal["프레스", "차체", "도장", "의장"] | None = None,
+    change_types: list[Literal["Man", "Machine", "Material", "Method"]] | None = None,
+    k: Annotated[int, Field(ge=1, le=10)] = 4,
+) -> StandardSearchResult:
+    """표준서·검사 기준 조항을 의미 검색합니다 (RAG). 공장과 변경 유형으로 거르고, 질의와 가까운
+    조항 k개를 돌려줍니다. 4M 공통 규정은 검색 대상이 아닙니다 (항상 전체를 읽는 문서)."""
+    try:
+        index = _standards_index()
+        hits = index.search(query, shop=shop, change_types=change_types or [], k=k)
+    except Exception as exc:   # 임베딩 서버(Ollama) 장애 등
+        raise ToolError(f"표준서 검색을 수행할 수 없습니다 ({type(exc).__name__})") from exc
+    return StandardSearchResult(query=query, shop=shop, change_types=change_types or [], k=k,
+                                embedding=index.embedder.name, chunk_count=index.chunk_count,
+                                hits=[StandardHit(**h) for h in hits])
 
 
 # ── Resources ───────────────────────────────────────────────────────────

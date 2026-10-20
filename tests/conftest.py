@@ -8,3 +8,6 @@ import os
 os.environ["LANGCHAIN_TRACING_V2"] = "false"
 os.environ["LANGSMITH_TRACING"] = "false"
 os.environ.pop("ADMIN_TOKEN", None)
+# RAG 검색은 결정론 fake 임베딩 + 메모리 인덱스로 (Ollama 없이, 디스크에 남기지 않고)
+os.environ["EMBEDDING_BACKEND"] = "fake"
+os.environ["RAG_INDEX_DIR"] = "memory"
