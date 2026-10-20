@@ -57,13 +57,14 @@ def test_slow_response_times_out_and_is_retried():
         async def slow_once(name, arguments):
             calls["n"] += 1
             if calls["n"] == 1:
-                await asyncio.sleep(1.0)   # 시간 제한(0.2초) 초과
+                await asyncio.sleep(10.0)   # 시간 제한(2초) 초과 — 시간 제한에 걸려 바로 취소된다
             return await original(name, arguments)
         session.call_tool = slow_once
         data, retries = await with_retry(c.call_tool, "get_production_status",
                                          {"line": "BD-FLOOR"}, base_delay=0.01)
         return data, retries
-    data, retries = run_with_client(call, request_timeout=0.2)
+    # 정상 호출이 느린 CI 러너에서도 시간 제한 안에 끝나도록 여유를 둔다 (0.2초는 CI에서 간헐 실패)
+    data, retries = run_with_client(call, request_timeout=2.0)
     assert retries == 1 and data["status"] == "running"
 
 
