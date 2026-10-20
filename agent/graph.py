@@ -219,9 +219,12 @@ async def replan_check_node(state: AgentState, deps: SupervisorDeps) -> dict:
                  f"문서를 조회하지 못했습니다." for d in documents
                  if d.get("error") and (d["doc_type"], d["target"]) not in read_ok]
     if not shop:
-        warnings.append("변경이 일어나는 공장을 특정하지 못했습니다.")
+        warnings.append("요청에 공장·설비·라인이 없어 변경이 일어나는 공장을 특정하지 못했습니다. "
+                        "공장(프레스·차체·도장·의장)이나 설비를 적어 다시 요청해 주세요.")
     elif not has_standard:
         warnings.append(f"{shop} 공장의 공정 표준을 찾지 못했습니다.")
+    if state["classification"].get("change_types_source") == "기본값":
+        warnings.append("변경 유형(작업자·설비·재료·공법)을 특정하지 못했습니다.")
     classification = {**state["classification"], "shop": shop}
     return {"replan_needed": False, "warnings": list(dict.fromkeys(warnings)),
             "classification": classification,

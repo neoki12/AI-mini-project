@@ -6,7 +6,6 @@
 """
 from typing import Any
 
-from agent.domain_4m import COMMON
 
 # 노드 → (Agent 이름, 시작할 때 보여 줄 문장)
 NODES: dict[str, tuple[str, str]] = {
@@ -51,7 +50,9 @@ def _message(ev: dict[str, Any]) -> str | None:
         return "4M 변경 검토 요청으로 판단했어요"
     if t == "Classified":
         types = ", ".join(f"{CHANGE_TYPE_KO.get(c, c)}({c})" for c in ev.get("change_types", []))
-        text = f"분류 결과: {ev.get('shop') or COMMON} 공장 · {types}"
+        shop = f"{ev['shop']} 공장" if ev.get("shop") else "공장 미상(요청에 공장·설비·라인 없음)"
+        source = {"LLM": " (LLM 판단)", "기본값": " (유형 미확정)"}.get(ev.get("change_types_source"), "")
+        text = f"분류 결과: {shop} · {types}{source}"
         if ev.get("equipment_ids"):
             text += f" · 설비 {', '.join(ev['equipment_ids'])}"
         if ev.get("lines"):

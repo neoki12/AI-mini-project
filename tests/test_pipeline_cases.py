@@ -196,3 +196,53 @@ def test_judge_timeout_falls_back_to_all_candidates():
     assert result["fallback"].startswith("시간 초과")
     assert [c["id"] for c in result["items"]] == ["EXT-BD-01"]
     assert [f["id"] for f in result["flows"]] == ["FLOW-03"]
+
+
+def test_classifier_does_not_trust_llm_shop_without_text_evidence():
+    """실측 결함: 공장 단서가 없는 요청을 LLM이 '프레스'(선택지 첫 값)로 답했다 → 공장 미상으로 둔다.
+    원문에 작업자 단어가 있으면 LLM의 Method 대신 Man을 따른다."""
+    from agent.agents.classifier import normalize
+
+    c = normalize({"shop": "프레스", "change_types": ["Method"]},
+                  "신입사원 김씨가 새로 입사했는데 어떻게 인수인계 해야해?")
+    assert c["shop"] is None and c["shop_source"] == "없음" and c["llm_shop"] == "프레스"
+    assert c["change_types"] == ["Man"] and c["change_types_source"] == "원문"
+
+
+def test_classifier_text_evidence_beats_llm():
+    from agent.agents.classifier import normalize
+
+    case05 = normalize({"shop": "차체", "change_types": ["Material"]}, DATASET[4]["input"])
+    assert case05["shop"] == "프레스"                       # '강판' → 프레스 (LLM은 차체)
+    case09 = normalize({"shop": "의장", "change_types": ["Material", "Method"]}, DATASET[8]["input"])
+    assert case09["change_types"] == ["Machine", "Method"]   # 너트러너 교체 + 토크 (LLM은 Material)
+
+
+def test_classifier_uses_llm_types_only_without_text_evidence():
+    from agent.agents.classifier import normalize
+
+    c = normalize({"shop": "의장", "change_types": ["Material"]}, "가니쉬 납품처가 바뀌었어요")
+    assert c["change_types"] == ["Material"] and c["change_types_source"] == "LLM"
+    none = normalize({}, "가니쉬 관련 확인 부탁드립니다")
+    assert none["change_types"] == ["Method"] and none["change_types_source"] == "기본값"
+
+
+def test_unknown_shop_review_needs_check(tmp_path):
+    """공장을 특정하지 못하면 추측해 검토하지 않고 '추가 확인 필요' + 공장을 적어 달라는 경고."""
+    import asyncio
+
+    async def main():
+        runtime = AgentRuntime(Settings(llm_backend="fake", db_path=tmp_path / "u.db"))
+        await runtime.start()
+        try:
+            result, _ = await runtime.run("신입사원 김씨가 새로 입사했는데 어떻게 인수인계 해야해?",
+                                          "t-unknown", forced_route="review")
+            return result
+        finally:
+            await runtime.stop()
+    result = asyncio.run(main())
+    assert result["classification"]["shop"] is None
+    assert result["review_status"] == "추가 확인 필요"
+    assert any("공장을 특정하지 못했습니다" in w for w in result["warnings"])
+    assert not any("None" in w for w in result["warnings"])   # 공장 미상일 때 'None 공장…' 경고 금지
+    assert result["final"].startswith("⚠️ 추가 확인 필요")

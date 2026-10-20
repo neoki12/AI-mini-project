@@ -50,7 +50,7 @@ SHOP_KEYWORDS = {
     "의장": ["조립", "체결", "너트러너", "트림", "시트벨트", "브레이크", "협력사"],
 }
 
-MAN_KEYWORDS = ["작업자", "담당자", "신입", "인원"]
+MAN_KEYWORDS = ["작업자", "담당자", "신입", "인원", "입사", "교대조", "숙련공"]
 MACHINE_NOUNS = ["로봇", "금형", "설비", "지그", "너트러너", "용접건"]
 MACHINE_VERBS = ["교체", "도입", "신형", "수정", "이설"]
 MATERIAL_KEYWORDS = ["공급사", "강판", "도료", "접착제", "실러", "부품", "협력사", "재질"]
@@ -100,8 +100,8 @@ def guess_shop(query: str) -> str | None:
     return min(hits)[1] if hits else None
 
 
-def guess_change_types(query: str) -> list[str]:
-    """키워드 매핑으로 변경 유형을 고른다. 복합 변경이면 여러 개를 돌려준다.
+def keyword_change_types(query: str) -> list[str]:
+    """원문 단어로 변경 유형을 고른다 (근거가 없으면 빈 목록). 복합 변경이면 여러 개.
 
     Machine은 설비 명사와 교체·도입 동사가 함께 있어야 한다 — '로봇의 전류 조건 변경'처럼
     설비가 언급돼도 설비 자체는 그대로인 Method 변경을 Machine으로 오판하지 않기 위함."""
@@ -114,7 +114,12 @@ def guess_change_types(query: str) -> list[str]:
         types.append("Material")
     if any(w in query for w in METHOD_KEYWORDS):
         types.append("Method")
-    return types or ["Method"]
+    return types
+
+
+def guess_change_types(query: str) -> list[str]:
+    """keyword_change_types + 근거가 없을 때의 기본값(Method) — fake 모델·fallback용."""
+    return keyword_change_types(query) or ["Method"]
 
 
 # 4M 변경 요청임을 보여 주는 강한 근거 — 변경 대상(작업자·설비·재료·공법)을 직접 가리키는 단어.
