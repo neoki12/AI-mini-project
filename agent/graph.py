@@ -222,7 +222,11 @@ async def judge_node(state: AgentState, deps: SupervisorDeps) -> dict:
     event = {"type": "ConditionsJudged", "candidates": result["candidate_count"],
              "applicable_items": [c["id"] for c in result["items"]],
              "applicable_flows": [r["id"] for r in result["flows"]],
-             "safety_forced": result.get("safety_forced", [])}
+             "safety_forced": result.get("safety_forced", []),
+             "reasons": {i: r for i, r in result.get("reasons", {}).items()
+                         if i in {c["id"] for c in result["items"]}
+                         | {f["id"] for f in result["flows"]}},
+             "unanswered": result.get("unanswered", [])}
     return {"judged": result, **_spend(state, result["usage"]),
             "events": [event] + _fallback_event("judge", result["fallback"])}
 

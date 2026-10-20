@@ -35,8 +35,13 @@ class ResearchPlan(BaseModel):
     tasks: list[ResearchTask]
 
 
-class ConditionDecision(BaseModel):
-    applicable_items: list[str] = Field(
-        default_factory=list, description="이번 변경 요청에 실제로 해당하는 조건부 항목 ID")
-    applicable_flows: list[str] = Field(
-        default_factory=list, description="이번 변경 요청에 실제로 해당하는 공정 간 영향 규칙 ID")
+class CandidateDecision(BaseModel):
+    id: str = Field(description="후보 ID (EXT-… 또는 FLOW-…)")
+    applies: bool = Field(description="변경 요청이 이 후보의 조건에 해당하면 true")
+    reason: str = Field(description="한 문장 근거")
+
+
+class ConditionDecisions(BaseModel):
+    """후보마다 하나씩 판정한다 — 해당하는 ID만 고르게 하면 소형 모델이 후보를 건너뛰고
+    놓치는 일이 많았다 (판정 단독 실험: Recall 0.45 → 0.82, 과잉 판정 0)."""
+    decisions: list[CandidateDecision]

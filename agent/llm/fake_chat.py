@@ -80,14 +80,20 @@ def _planner(user: str) -> str:
 
 def _judge(user: str) -> str:
     query = _section(user, "변경 요청")
-    item_ids = re.findall(r"^- (EXT-[A-Z]+-\d+) \|", _section(user, "조건부 항목 후보"), re.M)
-    flow_ids = re.findall(r"^- (FLOW-\d+) \|", _section(user, "공정 간 영향 후보"), re.M)
-    items = [i for i in item_ids
-             if (i in _CONDITION_KEYWORDS and _matches(query, _CONDITION_KEYWORDS[i]))
-             or (i in _CONDITION_ALTERNATIVES and _matches(query, _CONDITION_ALTERNATIVES[i]))]
-    flows = [f for f in flow_ids if any(w in query for w in _FLOW_KEYWORDS.get(f, []))]
-    return json.dumps({"applicable_items": list(dict.fromkeys(items)),
-                       "applicable_flows": flows})
+    ids = re.findall(r"^- ((?:EXT-[A-Z]+|FLOW)-\d+) \|", _section(
+        user, "판정할 후보 (모든 후보에 대해 답할 것)"), re.M)
+    decisions = []
+    for i in ids:
+        if i.startswith("FLOW-"):
+            applies = any(w in query for w in _FLOW_KEYWORDS.get(i, []))
+        else:
+            applies = ((i in _CONDITION_KEYWORDS and _matches(query, _CONDITION_KEYWORDS[i]))
+                       or (i in _CONDITION_ALTERNATIVES
+                           and _matches(query, _CONDITION_ALTERNATIVES[i])))
+        decisions.append({"id": i, "applies": applies,
+                          "reason": "요청에 조건 키워드가 있음 (fake 규칙)" if applies
+                          else "요청에 조건 키워드가 없음 (fake 규칙)"})
+    return json.dumps({"decisions": decisions}, ensure_ascii=False)
 
 
 def _writer(user: str) -> str:

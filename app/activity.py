@@ -85,6 +85,8 @@ def _message(ev: dict[str, Any]) -> str | None:
         hits = ev.get("applicable_items", []) + ev.get("applicable_flows", [])
         text = (f"조건부 후보 {ev.get('candidates', 0)}건 중 {len(hits)}건이 해당돼요"
                 + (f": {', '.join(hits)}" if hits else ""))
+        if ev.get("reasons"):
+            text += " · " + " / ".join(f"{i}: {r}" for i, r in ev["reasons"].items())
         if ev.get("safety_forced"):
             text += (f" · 안전 체결부 항목 {', '.join(ev['safety_forced'])}는 "
                      "규칙에 따라 반드시 포함했어요")

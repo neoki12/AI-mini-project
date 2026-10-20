@@ -6,7 +6,8 @@
 - 후보: 조사한 문서의 조항에 적힌 EXT-* 항목(현장 데이터 항목 제외) + 출발 공장·변경 유형이
         맞는 공정 흐름 규칙
 - judge_conditions=False (Baseline): 판정 없이 문서에 적힌 항목 ID를 전부 나열한다
-- LLM 실패 시: 후보를 전부 포함한다 — 품질 검토에서는 놓치는 쪽보다 더 확인하는 쪽이 안전하다
+- 후보마다 해당 여부와 이유를 따로 답하게 한다 (ConditionDecisions). 답이 빠진 후보는 포함한다
+- LLM 실패·시간 초과 시: 후보를 전부 포함한다 — 품질 검토에서는 놓치는 쪽보다 더 확인하는 쪽이 안전하다
 - 안전망: 요청에 안전 체결부 계통(QS-AS-001 조항 2)이 나오면 안전 항목은 LLM 판정과 무관하게
   포함한다. 실측에서 소형 모델이 '브레이크' 요청의 안전 항목을 놓쳐 등급이 A→B로 낮아졌다 —
   등급이 낮아지면 승인 절차를 건너뛰므로 이 판단만큼은 모델에 맡기지 않는다.
@@ -17,7 +18,7 @@ from ..domain_4m import (FIELD_ITEMS, ITEM_ID_PATTERN, SAFETY_ITEMS, SAFETY_SYST
                          flow_candidates)
 from ..llm.handle import LLMHandle, StructuredOutputError
 from ..prompts_4m import JUDGE_SYSTEM, classification_section, request_section
-from ..schemas import ConditionDecision
+from ..schemas import ConditionDecisions
 
 
 def document_candidates(documents: list[dict], *, all_ids: bool = False) -> list[dict]:
@@ -51,25 +52,27 @@ async def judge(llm: LLMHandle, query: str, classification: dict, documents: lis
     if not items and not flows:
         return {"items": [], "flows": [], "usage": None, "fallback": None,
                 "candidate_count": 0}
+    lines = [f"- {c['id']} | 조건: {c['doc_id']} Rev.{c['rev']} 조항 {c['clause']} "
+             f"{c['clause_title']} — {c['text']}" for c in items]
+    lines += [f"- {r['id']} | 조건: {r['from_shop']} 공장의 {r['change_type']} 변경 중 "
+              f"'{r['subject']}'이면 다음 공장 확인 필요 ({', '.join(r['items'])})" for r in flows]
     user = (request_section(query) + "\n" + classification_section(classification)
-            + "\n## 조건부 항목 후보\n"
-            + "\n".join(f"- {c['id']} | {c['doc_id']} Rev.{c['rev']} 조항 {c['clause']} "
-                        f"{c['clause_title']} | {c['text']}" for c in items)
-            + "\n\n## 공정 간 영향 후보\n"
-            + "\n".join(f"- {r['id']} | {r['from_shop']} {r['change_type']} | {r['subject']}"
-                        for r in flows))
+            + "\n## 판정할 후보 (모든 후보에 대해 답할 것)\n" + "\n".join(lines))
     try:
-        decision, usage = await llm.structured(JUDGE_SYSTEM, user, ConditionDecision)
-        chosen_items = set(decision.applicable_items)
-        chosen_flows = set(decision.applicable_flows)
-        candidate_ids = {c["id"] for c in items}
-        forced = [i for i in SAFETY_ITEMS if i in candidate_ids and i not in chosen_items] \
-            if any(w in query for w in SAFETY_SYSTEMS) else []
-        chosen_items.update(forced)
-        return {"items": [c for c in items if c["id"] in chosen_items],
-                "flows": [r for r in flows if r["id"] in chosen_flows],
-                "usage": usage, "fallback": None, "safety_forced": forced,
-                "candidate_count": len(items) + len(flows)}
+        result, usage = await llm.structured(JUDGE_SYSTEM, user, ConditionDecisions)
     except StructuredOutputError as exc:
         return {"items": items, "flows": flows, "usage": None, "fallback": str(exc)[:200],
-                "candidate_count": len(items) + len(flows)}
+                "candidate_count": len(items) + len(flows), "reasons": {}, "unanswered": []}
+    decided = {d.id: d for d in result.decisions}
+    all_ids = [c["id"] for c in items] + [r["id"] for r in flows]
+    unanswered = [i for i in all_ids if i not in decided]   # 답이 빠진 후보 → 포함(보수적)
+    chosen = {i for i in all_ids if i in unanswered or decided[i].applies}
+    candidate_ids = {c["id"] for c in items}
+    forced = [i for i in SAFETY_ITEMS if i in candidate_ids and i not in chosen] \
+        if any(w in query for w in SAFETY_SYSTEMS) else []
+    chosen.update(forced)
+    reasons = {i: decided[i].reason for i in all_ids if i in decided}
+    return {"items": [c for c in items if c["id"] in chosen],
+            "flows": [r for r in flows if r["id"] in chosen],
+            "usage": usage, "fallback": None, "safety_forced": forced,
+            "candidate_count": len(all_ids), "reasons": reasons, "unanswered": unanswered}

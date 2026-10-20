@@ -120,8 +120,9 @@ def test_safety_items_forced_even_if_judge_misses(tmp_path):
     from agent.llm.handle import LLMHandle
     from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
-    lazy = LLMHandle("fake:lazy", FakeListChatModel(
-        responses=['{"applicable_items": [], "applicable_flows": []}']), 0.0, False)
+    lazy = LLMHandle("fake:lazy", FakeListChatModel(responses=[
+        '{"decisions": [{"id": "EXT-AS-01", "applies": false, "reason": "x"},'
+        ' {"id": "EXT-AS-02", "applies": false, "reason": "x"}]}']), 0.0, False)
     documents = [{"doc_id": "QS-AS-001", "rev": "F", "clauses": [
         {"no": "3", "title": "안전 체결부 변경",
          "text": "체결 토크를 전수 검사하고(EXT-AS-01), 추적성을 확보한다(EXT-AS-02)."}]}]
@@ -144,3 +145,54 @@ def test_structured_output_failure_falls_back(tmp_path):
     result, _, fallback = asyncio.run(classifier.classify(broken, DATASET[7]["input"]))
     assert fallback
     assert result["shop"] == "차체" and result["equipment_ids"] == ["BD-RB-301", "BD-RB-302"]
+
+
+def _judge_with(response: str, query: str = "용접 전류 조건 변경", timeout: float = 120.0):
+    import asyncio
+
+    from agent.agents import judge as judge_agent
+    from agent.llm.handle import LLMHandle
+    from langchain_core.language_models.fake_chat_models import FakeListChatModel
+
+    llm = LLMHandle("fake:scripted", FakeListChatModel(responses=[response]), 0.0, False,
+                    timeout=timeout)
+    documents = [{"doc_id": "QS-BD-001", "rev": "E", "clauses": [
+        {"no": "3", "title": "용접 조건 변경", "text": "파괴 검사를 실시한다(EXT-BD-01)."}]}]
+    return asyncio.run(judge_agent.judge(
+        llm, query, {"shop": "차체", "change_types": ["Material"]}, documents,
+        enabled=True, flow_enabled=True))
+
+
+def test_judge_records_reasons_and_respects_false():
+    """후보마다 해당 여부와 이유를 받는다. FLOW-03(차체 Material)도 후보로 함께 판정한다."""
+    result = _judge_with('{"decisions": [{"id": "EXT-BD-01", "applies": true, "reason": "전류 변경"},'
+                         ' {"id": "FLOW-03", "applies": false, "reason": "실러 변경 아님"}]}')
+    assert [c["id"] for c in result["items"]] == ["EXT-BD-01"] and result["flows"] == []
+    assert result["reasons"] == {"EXT-BD-01": "전류 변경", "FLOW-03": "실러 변경 아님"}
+
+
+def test_judge_includes_unanswered_candidates():
+    """모델이 답을 빠뜨린 후보는 놓치는 대신 포함한다 (보수적)."""
+    result = _judge_with('{"decisions": [{"id": "EXT-BD-01", "applies": false, "reason": "x"}]}')
+    assert result["unanswered"] == ["FLOW-03"]
+    assert [f["id"] for f in result["flows"]] == ["FLOW-03"]
+
+
+def test_judge_timeout_falls_back_to_all_candidates():
+    """판정이 시간 제한을 넘기면 후보를 전부 포함하고 검토를 계속한다."""
+    import asyncio
+
+    from agent.llm import handle as handle_module
+
+    async def never(*args, **kwargs):
+        await asyncio.sleep(10)
+
+    original = handle_module.LLMHandle._structured
+    handle_module.LLMHandle._structured = never
+    try:
+        result = _judge_with("{}", timeout=0.05)
+    finally:
+        handle_module.LLMHandle._structured = original
+    assert result["fallback"].startswith("시간 초과")
+    assert [c["id"] for c in result["items"]] == ["EXT-BD-01"]
+    assert [f["id"] for f in result["flows"]] == ["FLOW-03"]
