@@ -69,6 +69,8 @@ class ReviewRequest(BaseModel):
                                    "용접 전류 조건을 변경합니다."])
     thread_id: str | None = Field(default=None, pattern=THREAD_ID_PATTERN,
                                   description="생략하면 검토마다 새 스레드를 만든다")
+    parent_id: str | None = Field(default=None, pattern=r"^rv-[0-9a-f]{12}$",
+                                  description="보완 재검토: 원 검토 ID. message는 보완 정보만 적는다")
 
 
 class DocumentRef(BaseModel):
@@ -108,6 +110,8 @@ class ReviewResponse(BaseModel):
     created_at: str
     thread_id: str
     request: str
+    parent_id: str | None = Field(default=None, description="보완 재검토면 원 검토 ID")
+    supplement: str | None = Field(default=None, description="보완 재검토에서 덧붙인 정보")
     shop: str | None = Field(description="변경이 일어나는 공장 (프레스/차체/도장/의장)")
     change_types: list[str] = Field(description="Man / Machine / Material / Method")
     documents: list[DocumentRef] = Field(description="검토에 사용한 표준서와 검사 기준")

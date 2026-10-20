@@ -56,6 +56,8 @@ export interface Review {
   created_at: string
   thread_id: string
   request: string
+  parent_id?: string | null
+  supplement?: string | null
   shop: string | null
   change_types: string[]
   documents: DocumentRef[]

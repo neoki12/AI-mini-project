@@ -21,13 +21,14 @@ export async function streamReview(
   message: string,
   onEvent: (event: StreamEvent) => void,
   signal?: AbortSignal,
+  parentId?: string,   // 보완 재검토: 원 검토 ID (message에는 보완 정보만)
 ): Promise<void> {
   let res: Response
   try {
     res = await fetch('/api/v1/reviews/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify(parentId ? { message, parent_id: parentId } : { message }),
       signal,
     })
   } catch (e) {

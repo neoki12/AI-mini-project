@@ -23,6 +23,9 @@ const showLog = ref(false)
       <div>
         <p class="muted small">{{ formatDateTime(review.created_at) }} · <span class="mono">{{ review.id }}</span></p>
         <h1 class="request">{{ review.request }}</h1>
+        <p v-if="review.parent_id" class="muted small">
+          보완 재검토 · 원 검토 <RouterLink :to="{ name: 'review-detail', params: { id: review.parent_id } }">{{ review.parent_id }}</RouterLink>
+        </p>
       </div>
       <div class="badges">
         <GradeBadge :grade="review.grading?.grade" :approver="review.grading?.approver" />
@@ -37,6 +40,9 @@ const showLog = ref(false)
         <li v-if="review.missing_items.length">보고서에 빠진 항목: {{ review.missing_items.join(', ') }}</li>
         <li v-for="issue in review.citation_issues ?? []" :key="issue">근거 인용 문제: {{ issue }}</li>
       </ul>
+      <RouterLink class="followup" :to="{ name: 'review-new', query: { parent: review.id } }">
+        보완해서 다시 검토 →
+      </RouterLink>
     </div>
 
     <dl class="facts">
@@ -123,13 +129,14 @@ const showLog = ref(false)
 
 <style scoped>
 .head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
-.request { font-size: 18px; line-height: 1.45; }
+.request { font-size: 18px; line-height: 1.45; white-space: pre-line; }
 .badges { display: flex; gap: 8px; flex-wrap: wrap; }
 .small { font-size: 13px; margin: 0; }
 .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 16px 0 8px; }
 .facts dt { font-size: 13px; color: var(--text-muted); }
 .facts dd { margin: 0; font-weight: 600; }
 .banner ul { margin: 6px 0 0; padding-left: 20px; }
+.followup { display: inline-block; margin-top: 8px; font-weight: 600; }
 .group + .group { margin-top: 20px; }
 h3 { font-size: 15px; margin: 0 0 6px; }
 .col-id { width: 120px; white-space: nowrap; }

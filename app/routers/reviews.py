@@ -4,6 +4,9 @@
 - POST /api/v1/reviews/stream : 검토 실행 과정을 SSE 활동 로그로 스트리밍 + 끝나면 저장
 - POST /api/v1/reviews/{id}/feedback : 사용자 평가(👍/👎) — 로컬 저장 + LangSmith 실행에 기록
 - GET  /api/v1/reviews/{id}/feedback : 그 검토에 남긴 평가 목록
+
+보완 재검토: parent_id를 주면 원 검토의 요청에 보완 정보(message)를 덧붙여 같은 스레드에서
+다시 검토한다 — '공장 미상' 같은 '추가 확인 필요' 결과를 처음부터 다시 쓰지 않고 이어서 해결한다.
 - GET  /api/v1/reviews        : 검토 이력 목록 (최신순, 페이지네이션)
 - GET  /api/v1/reviews/{id}   : 검토 상세
 """
@@ -45,13 +48,13 @@ def _field_findings(findings: list[dict]) -> list[dict]:
                               "description": "요청 형식 오류 또는 4M 변경 요청이 아님"},
                          502: {"model": ErrorResponse}})
 async def create_review(req: ReviewRequest, runtime: AgentRuntime = Depends(get_runtime)):
-    thread_id = req.thread_id or f"review-{uuid.uuid4().hex[:12]}"
-    result, run_id = await run_agent(runtime, req.message, thread_id, forced_route="review")
+    message, thread_id, link = _resolve(req, runtime)
+    result, run_id = await run_agent(runtime, message, thread_id, forced_route="review")
     if result.get("route") == "out_of_scope":   # 검토하지 않았으므로 이력에 남기지 않는다
         raise NotAChangeRequest(result["final"])
     events = [describe(e) for e in result.get("events", [])]
-    return runtime.reviews.save(thread_id, req.message,
-                                _review_body(runtime, result, events, run_id))
+    return runtime.reviews.save(thread_id, message,
+                                {**link, **_review_body(runtime, result, events, run_id)})
 
 
 @router.post("/stream", response_class=StreamingResponse,
@@ -65,22 +68,33 @@ async def stream_review(req: ReviewRequest, request: Request,
     (elapsed_ms) · AnswerToken(보고서 토큰) · FinalAnswer · ReviewSaved(id) · [DONE].
     GET + EventSource 대신 POST를 쓴다 — EventSource는 연결이 끊기면 자동 재연결해 같은
     검토를 다시 실행하기 때문이다."""
-    thread_id = req.thread_id or f"review-{uuid.uuid4().hex[:12]}"
+    message, thread_id, link = _resolve(req, runtime)
 
     async def save(state: dict, activity: list[dict], run_id: str | None) -> dict:
         if state.get("route") == "out_of_scope":
             return {"type": "OutOfScope", "code": "not_a_change_request",
                     "message": state.get("final", "")}
-        review = runtime.reviews.save(thread_id, req.message,
-                                      _review_body(runtime, state, activity, run_id))
+        review = runtime.reviews.save(thread_id, message,
+                                      {**link, **_review_body(runtime, state, activity, run_id)})
         return {"type": "ReviewSaved", "id": review["id"],
                 "review_status": review["review_status"]}
 
     return StreamingResponse(
-        sse_stream(runtime, req.message, thread_id, request.state.request_id,
+        sse_stream(runtime, message, thread_id, request.state.request_id,
                    forced_route="review", on_complete=save),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+def _resolve(req: ReviewRequest, runtime: AgentRuntime) -> tuple[str, str, dict]:
+    """(Agent에 넘길 요청, 스레드, 원 검토 연결 정보). 보완 재검토면 원 요청에 보완 정보를 덧붙인다."""
+    if not req.parent_id:
+        return req.message, req.thread_id or f"review-{uuid.uuid4().hex[:12]}", {}
+    parent = runtime.reviews.get(req.parent_id)
+    if parent is None:
+        raise HTTPException(status_code=404, detail=f"원 검토가 없습니다: {req.parent_id}")
+    message = f"{parent['request']}\n[보완 정보] {req.message}"
+    return message, parent["thread_id"], {"parent_id": req.parent_id, "supplement": req.message}
 
 
 def _review_body(runtime: AgentRuntime, result: dict, events: list[dict],

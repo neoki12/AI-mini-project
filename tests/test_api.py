@@ -269,3 +269,25 @@ def test_request_with_domain_evidence_skips_router_llm(client):
     route = r.json()["events"][0]
     assert r.status_code == 201
     assert route["route"] == "review" and "작업자" in route["evidence"]
+
+
+def test_follow_up_review_resolves_unknown_shop(client):
+    """공장 미상으로 '추가 확인 필요'가 나온 검토에 보완 정보만 덧붙여 이어서 다시 검토한다."""
+    first = client.post("/api/v1/reviews",
+                        json={"message": "신입 작업자 2명을 야간조에 투입하려고 합니다"}).json()
+    assert first["shop"] is None and first["review_status"] == "추가 확인 필요"
+
+    r = client.post("/api/v1/reviews", json={"message": "의장 공장 도어 트림 공정이에요",
+                                             "parent_id": first["id"]})
+    assert r.status_code == 201
+    second = r.json()
+    assert second["parent_id"] == first["id"] and second["supplement"] == "의장 공장 도어 트림 공정이에요"
+    assert second["thread_id"] == first["thread_id"]
+    assert second["shop"] == "의장" and second["change_types"] == ["Man"]
+    assert second["review_status"] == "검토 완료"
+    assert second["request"].startswith("신입 작업자 2명을") and "[보완 정보]" in second["request"]
+
+
+def test_follow_up_with_unknown_parent_is_404(client):
+    r = client.post("/api/v1/reviews", json={"message": "차체예요", "parent_id": "rv-000000000000"})
+    assert r.status_code == 404
