@@ -2,7 +2,7 @@
 #
 # all_total_vue — 로컬 Ollama 환경을 구성하는 스크립트.
 #
-# 이 실습에 필요한 모델(기본 qwen3:0.6b / qwen3:8b)이 이미 받아져 있으면 그대로
+# 이 실습에 필요한 모델(기본 qwen2.5:7b / qwen3:8b)이 이미 받아져 있으면 그대로
 # 재사용하고(삭제·재다운로드 없음), 없는 모델만 새로 받는다.
 #
 # "모델이 이상하게 응답한다", "처음부터 깨끗하게 다시 세팅하고 싶다" 할 때는
@@ -20,7 +20,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-FAST_MODEL="${OLLAMA_FAST_MODEL:-qwen3:0.6b}"
+FAST_MODEL="${OLLAMA_FAST_MODEL:-qwen2.5:7b}"
 QUALITY_MODEL="${OLLAMA_QUALITY_MODEL:-qwen3:8b}"
 FORCE_REFRESH="${OLLAMA_FORCE_REFRESH:-0}"
 

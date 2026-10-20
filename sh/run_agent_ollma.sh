@@ -16,17 +16,17 @@ cd "$(dirname "$0")/.."
 # 경우가 있어, 이 프로젝트 전용 .venv가 있으면 PATH 맨 앞에 명시적으로 꽂아둔다.
 [ -x ".venv/bin/python3" ] && export PATH="$PWD/.venv/bin:$PATH"
 
-FAST_MODEL="${OLLAMA_FAST_MODEL:-qwen3:0.6b}"
+FAST_MODEL="${OLLAMA_FAST_MODEL:-qwen2.5:7b}"
 QUALITY_MODEL="${OLLAMA_QUALITY_MODEL:-qwen3:8b}"
 
 # ── 0) LangSmith 환경 ──────────────────────────────────────────────────
-if [ ! -f .env ]; then
-    echo "ERROR: .env가 없습니다 — .env.example을 복사해 .env로 만들고 본인 API 키를 채워주세요."
-    echo "  cp .env.example .env"
-    exit 1
+if [ -f .env ]; then
+    set -a; source .env; set +a
+else
+    # LangSmith 키가 없어도 Agent는 동작한다 — 추적(관리자 기능)만 꺼진 채로 실행
+    echo "⚠️  .env가 없어 LangSmith 추적 없이 실행합니다 (켜려면: cp .env.example .env 후 키 입력)."
 fi
-set -a; source .env; set +a
-export LANGCHAIN_PROJECT="capstone-all-total-ollama"   # fake 모드와 프로젝트 분리
+export LANGCHAIN_PROJECT="capstone-4m-ollama"   # 백엔드별로 LangSmith 프로젝트 분리
 echo "LangSmith: project=$LANGCHAIN_PROJECT tracing=${LANGCHAIN_TRACING_V2:-}"
 echo "모델: fast=$FAST_MODEL / quality=$QUALITY_MODEL"
 
@@ -58,7 +58,7 @@ done
 
 # ── 2) 이전 실행 정리 ──────────────────────────────────────────────────
 lsof -ti:8100 | xargs kill -9 2>/dev/null || true
-rm -f session.db
+# session.db(대화 이력·검토 이력)는 재시작해도 유지한다 — 초기화하려면 직접 삭제
 
 cleanup() {
     echo
@@ -88,18 +88,19 @@ cat <<EOF
 지금 바로 테스트해볼 수 있는 방법:
 
 1) curl로 말 걸어보기
-   curl -s -X POST localhost:8100/chat -H 'Content-Type: application/json' \\
-     -d '{"message":"auth-service 로그인 응답이 느려졌어요. 원인 확인해주세요","thread_id":"t-test"}' \\
+   curl -s -X POST localhost:8100/api/v1/reviews -H 'Content-Type: application/json' \\
+     -d '{"message":"차체 대시 패널 라인 용접 로봇(BD-RB-301, BD-RB-302)의 용접 전류 조건을 변경합니다. 검토해주세요","thread_id":"t-test"}' \\
      | python3 -m json.tool --no-ensure-ascii
 
 2) 실시간 진행 상황 보기 (스트리밍)
    curl -sN -G "localhost:8100/chat/stream" \\
-     --data-urlencode "message=web-01 CPU 급증 원인 진단해줘" \\
+     --data-urlencode "message=협력사로부터 브레이크 호스 브래킷 부품의 4M 변경 신고가 접수됐습니다. 검토해주세요" \\
      --data-urlencode "thread_id=t-test-sse"
 
-3) 브라우저 채팅 화면으로 써보기 (새 터미널에서)
-   python3 web_demo_server.py
-   → http://localhost:8600 접속
+3) 브라우저 화면 (새 터미널에서)
+   bash sh/run_frontend.sh          → http://localhost:5173 (개발 서버)
+   또는 bash sh/build_frontend.sh 후 → http://127.0.0.1:8100 (서버 하나로)
+   API 문서: http://127.0.0.1:8100/docs
 
 더 자세한 사용 예는 manual_ollma.md 참고. 종료하려면 이 터미널에서 Ctrl+C.
 EOF
