@@ -1,0 +1,1162 @@
+{
+  "llm_backend": "openai",
+  "models": "openai:gpt-4o-mini / openai:gpt-4o",
+  "runs": 3,
+  "case_count": 10,
+  "summary": {
+    "baseline": {
+      "metrics": {
+        "recall": {
+          "mean": 0.219,
+          "std": 0.0,
+          "runs": [
+            0.219,
+            0.219,
+            0.219
+          ]
+        },
+        "precision": {
+          "mean": 0.54,
+          "std": 0.0,
+          "runs": [
+            0.54,
+            0.54,
+            0.54
+          ]
+        },
+        "f1": {
+          "mean": 0.283,
+          "std": 0.0,
+          "runs": [
+            0.283,
+            0.283,
+            0.283
+          ]
+        },
+        "recall_required": {
+          "mean": 0.1355,
+          "std": 0.0,
+          "runs": [
+            0.1355,
+            0.1355,
+            0.1355
+          ]
+        },
+        "recall_document": {
+          "mean": 1.0,
+          "std": 0.0,
+          "runs": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "recall_field": {
+          "mean": 0.5,
+          "std": 0.0,
+          "runs": [
+            0.5,
+            0.5,
+            0.5
+          ]
+        },
+        "recall_downstream": {
+          "mean": 0.0,
+          "std": 0.0,
+          "runs": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "grade_correct": {
+          "mean": 0.9,
+          "std": 0.0,
+          "runs": [
+            0.9,
+            0.9,
+            0.9
+          ]
+        },
+        "classification_correct": {
+          "mean": 1.0,
+          "std": 0.0,
+          "runs": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "retrieval_recall": {
+          "mean": 1.0,
+          "std": 0.0,
+          "runs": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "latency_s": {
+          "mean": 4.288666666666667,
+          "std": 0.2251495799092979,
+          "runs": [
+            4.489,
+            4.045,
+            4.332
+          ]
+        },
+        "tokens": {
+          "mean": 2413.633333333333,
+          "std": 5.970203793283249,
+          "runs": [
+            2414.2,
+            2407.4,
+            2419.3
+          ]
+        }
+      },
+      "experiments": [
+        "4m-baseline-7e364774",
+        "4m-baseline-8404a4f8",
+        "4m-baseline-9534e6e8"
+      ]
+    },
+    "improved": {
+      "metrics": {
+        "recall": {
+          "mean": 1.0,
+          "std": 0.0,
+          "runs": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "precision": {
+          "mean": 0.9944666666666667,
+          "std": 0.004792007234273879,
+          "runs": [
+            1.0,
+            0.9917,
+            0.9917
+          ]
+        },
+        "f1": {
+          "mean": 0.9971333333333333,
+          "std": 0.0024826061575153736,
+          "runs": [
+            1.0,
+            0.9957,
+            0.9957
+          ]
+        },
+        "recall_required": {
+          "mean": 1.0,
+          "std": 0.0,
+          "runs": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "recall_document": {
+          "mean": 1.0,
+          "std": 0.0,
+          "runs": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "recall_field": {
+          "mean": 1.0,
+          "std": 0.0,
+          "runs": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "recall_downstream": {
+          "mean": 1.0,
+          "std": 0.0,
+          "runs": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "grade_correct": {
+          "mean": 1.0,
+          "std": 0.0,
+          "runs": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "classification_correct": {
+          "mean": 1.0,
+          "std": 0.0,
+          "runs": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "retrieval_recall": {
+          "mean": 1.0,
+          "std": 0.0,
+          "runs": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "latency_s": {
+          "mean": 8.982666666666667,
+          "std": 2.678330885707241,
+          "runs": [
+            5.89,
+            10.525,
+            10.533
+          ]
+        },
+        "tokens": {
+          "mean": 3476.3,
+          "std": 50.75706847326789,
+          "runs": [
+            3534.9,
+            3447.9,
+            3446.1
+          ]
+        }
+      },
+      "experiments": [
+        "4m-improved-c24c16c0",
+        "4m-improved-b89a2492",
+        "4m-improved-9228a92d"
+      ]
+    }
+  },
+  "per_run": [
+    [
+      {
+        "profile": "baseline",
+        "experiment": "4m-baseline-7e364774",
+        "url": "https://smith.langchain.com/o/8c12372e-69e4-4e7e-8599-78a72d4c74f3/projects/p/7b91129a-7725-4abb-a01f-30bc300166f7",
+        "summary": {
+          "recall": 0.219,
+          "precision": 0.54,
+          "f1": 0.283,
+          "recall_required": 0.1355,
+          "recall_document": 1.0,
+          "recall_field": 0.5,
+          "recall_downstream": 0.0,
+          "grade_correct": 0.9,
+          "classification_correct": 1.0,
+          "retrieval_recall": 1.0,
+          "latency_s": 4.489,
+          "tokens": 2414.2
+        },
+        "cases": [
+          {
+            "case_id": "case-01",
+            "recall": 0.25,
+            "precision": 0.2,
+            "f1": 0.2222,
+            "recall_required": 0.25,
+            "grade_correct": 0,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.0,
+            "tokens": 2490
+          },
+          {
+            "case_id": "case-02",
+            "recall": 0.25,
+            "precision": 0.25,
+            "f1": 0.25,
+            "recall_required": 0.25,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.78,
+            "tokens": 2313
+          },
+          {
+            "case_id": "case-03",
+            "recall": 0.125,
+            "precision": 1.0,
+            "f1": 0.2222,
+            "recall_required": 0.0,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.83,
+            "tokens": 2312
+          },
+          {
+            "case_id": "case-04",
+            "recall": 0.2222,
+            "precision": 0.5,
+            "f1": 0.3077,
+            "recall_required": 0.1429,
+            "recall_document": 1.0,
+            "recall_downstream": 0.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.36,
+            "tokens": 2396
+          },
+          {
+            "case_id": "case-05",
+            "recall": 0.125,
+            "precision": 0.25,
+            "f1": 0.1667,
+            "recall_required": 0.1667,
+            "recall_downstream": 0.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.74,
+            "tokens": 2411
+          },
+          {
+            "case_id": "case-06",
+            "recall": 0.375,
+            "precision": 0.6,
+            "f1": 0.4615,
+            "recall_required": 0.1667,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.04,
+            "tokens": 2411
+          },
+          {
+            "case_id": "case-07",
+            "recall": 0.25,
+            "precision": 0.5,
+            "f1": 0.3333,
+            "recall_required": 0.1429,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.61,
+            "tokens": 2471
+          },
+          {
+            "case_id": "case-08",
+            "recall": 0.1111,
+            "precision": 1.0,
+            "f1": 0.2,
+            "recall_required": 0.0,
+            "recall_document": 1.0,
+            "recall_field": 0.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.63,
+            "tokens": 2366
+          },
+          {
+            "case_id": "case-09",
+            "recall": 0.3,
+            "precision": 0.6,
+            "f1": 0.4,
+            "recall_required": 0.125,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.57,
+            "tokens": 2500
+          },
+          {
+            "case_id": "case-10",
+            "recall": 0.1818,
+            "precision": 0.5,
+            "f1": 0.2666,
+            "recall_required": 0.1111,
+            "recall_field": 1.0,
+            "recall_downstream": 0.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.33,
+            "tokens": 2472
+          }
+        ]
+      },
+      {
+        "profile": "improved",
+        "experiment": "4m-improved-c24c16c0",
+        "url": "https://smith.langchain.com/o/8c12372e-69e4-4e7e-8599-78a72d4c74f3/projects/p/fa8f0ff8-38ac-4215-9dde-54183a7855fb",
+        "summary": {
+          "recall": 1.0,
+          "precision": 1.0,
+          "f1": 1.0,
+          "recall_required": 1.0,
+          "recall_document": 1.0,
+          "recall_field": 1.0,
+          "recall_downstream": 1.0,
+          "grade_correct": 1.0,
+          "classification_correct": 1.0,
+          "retrieval_recall": 1.0,
+          "latency_s": 5.89,
+          "tokens": 3534.9
+        },
+        "cases": [
+          {
+            "case_id": "case-01",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 5.67,
+            "tokens": 3444
+          },
+          {
+            "case_id": "case-02",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.86,
+            "tokens": 3100
+          },
+          {
+            "case_id": "case-03",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 5.78,
+            "tokens": 3537
+          },
+          {
+            "case_id": "case-04",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "recall_document": 1.0,
+            "recall_downstream": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 5.74,
+            "tokens": 3554
+          },
+          {
+            "case_id": "case-05",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "recall_downstream": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 5.81,
+            "tokens": 3530
+          },
+          {
+            "case_id": "case-06",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 5.69,
+            "tokens": 3475
+          },
+          {
+            "case_id": "case-07",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 5.66,
+            "tokens": 3482
+          },
+          {
+            "case_id": "case-08",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "recall_document": 1.0,
+            "recall_field": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 7.33,
+            "tokens": 3673
+          },
+          {
+            "case_id": "case-09",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 6.44,
+            "tokens": 3787
+          },
+          {
+            "case_id": "case-10",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "recall_field": 1.0,
+            "recall_downstream": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 5.92,
+            "tokens": 3767
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "profile": "baseline",
+        "experiment": "4m-baseline-8404a4f8",
+        "url": "https://smith.langchain.com/o/8c12372e-69e4-4e7e-8599-78a72d4c74f3/projects/p/9c8f9079-09f7-4d1c-ba42-a66c3ee99090",
+        "summary": {
+          "recall": 0.219,
+          "precision": 0.54,
+          "f1": 0.283,
+          "recall_required": 0.1355,
+          "recall_document": 1.0,
+          "recall_field": 0.5,
+          "recall_downstream": 0.0,
+          "grade_correct": 0.9,
+          "classification_correct": 1.0,
+          "retrieval_recall": 1.0,
+          "latency_s": 4.045,
+          "tokens": 2407.4
+        },
+        "cases": [
+          {
+            "case_id": "case-01",
+            "recall": 0.25,
+            "precision": 0.2,
+            "f1": 0.2222,
+            "recall_required": 0.25,
+            "grade_correct": 0,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.32,
+            "tokens": 2509
+          },
+          {
+            "case_id": "case-02",
+            "recall": 0.25,
+            "precision": 0.25,
+            "f1": 0.25,
+            "recall_required": 0.25,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 3.88,
+            "tokens": 2309
+          },
+          {
+            "case_id": "case-03",
+            "recall": 0.125,
+            "precision": 1.0,
+            "f1": 0.2222,
+            "recall_required": 0.0,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 3.85,
+            "tokens": 2312
+          },
+          {
+            "case_id": "case-04",
+            "recall": 0.2222,
+            "precision": 0.5,
+            "f1": 0.3077,
+            "recall_required": 0.1429,
+            "recall_document": 1.0,
+            "recall_downstream": 0.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.01,
+            "tokens": 2396
+          },
+          {
+            "case_id": "case-05",
+            "recall": 0.125,
+            "precision": 0.25,
+            "f1": 0.1667,
+            "recall_required": 0.1667,
+            "recall_downstream": 0.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.27,
+            "tokens": 2419
+          },
+          {
+            "case_id": "case-06",
+            "recall": 0.375,
+            "precision": 0.6,
+            "f1": 0.4615,
+            "recall_required": 0.1667,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 3.94,
+            "tokens": 2401
+          },
+          {
+            "case_id": "case-07",
+            "recall": 0.25,
+            "precision": 0.5,
+            "f1": 0.3333,
+            "recall_required": 0.1429,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 3.99,
+            "tokens": 2402
+          },
+          {
+            "case_id": "case-08",
+            "recall": 0.1111,
+            "precision": 1.0,
+            "f1": 0.2,
+            "recall_required": 0.0,
+            "recall_document": 1.0,
+            "recall_field": 0.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.04,
+            "tokens": 2364
+          },
+          {
+            "case_id": "case-09",
+            "recall": 0.3,
+            "precision": 0.6,
+            "f1": 0.4,
+            "recall_required": 0.125,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.21,
+            "tokens": 2490
+          },
+          {
+            "case_id": "case-10",
+            "recall": 0.1818,
+            "precision": 0.5,
+            "f1": 0.2666,
+            "recall_required": 0.1111,
+            "recall_field": 1.0,
+            "recall_downstream": 0.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 3.94,
+            "tokens": 2472
+          }
+        ]
+      },
+      {
+        "profile": "improved",
+        "experiment": "4m-improved-b89a2492",
+        "url": "https://smith.langchain.com/o/8c12372e-69e4-4e7e-8599-78a72d4c74f3/projects/p/e2d52167-8390-4b9c-bf17-a8324b46fc2c",
+        "summary": {
+          "recall": 1.0,
+          "precision": 0.9917,
+          "f1": 0.9957,
+          "recall_required": 1.0,
+          "recall_document": 1.0,
+          "recall_field": 1.0,
+          "recall_downstream": 1.0,
+          "grade_correct": 1.0,
+          "classification_correct": 1.0,
+          "retrieval_recall": 1.0,
+          "latency_s": 10.525,
+          "tokens": 3447.9
+        },
+        "cases": [
+          {
+            "case_id": "case-01",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 5.67,
+            "tokens": 3442
+          },
+          {
+            "case_id": "case-02",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 5.51,
+            "tokens": 3098
+          },
+          {
+            "case_id": "case-03",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 5.73,
+            "tokens": 3537
+          },
+          {
+            "case_id": "case-04",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "recall_document": 1.0,
+            "recall_downstream": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 5.72,
+            "tokens": 3559
+          },
+          {
+            "case_id": "case-05",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "recall_downstream": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 5.41,
+            "tokens": 3531
+          },
+          {
+            "case_id": "case-06",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 5.35,
+            "tokens": 3475
+          },
+          {
+            "case_id": "case-07",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 5.76,
+            "tokens": 3506
+          },
+          {
+            "case_id": "case-08",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "recall_document": 1.0,
+            "recall_field": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 5.95,
+            "tokens": 3671
+          },
+          {
+            "case_id": "case-09",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 6.33,
+            "tokens": 3787
+          },
+          {
+            "case_id": "case-10",
+            "recall": 1.0,
+            "precision": 0.9167,
+            "f1": 0.9565,
+            "recall_required": 1.0,
+            "recall_field": 1.0,
+            "recall_downstream": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 53.82,
+            "tokens": 2873
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "profile": "baseline",
+        "experiment": "4m-baseline-9534e6e8",
+        "url": "https://smith.langchain.com/o/8c12372e-69e4-4e7e-8599-78a72d4c74f3/projects/p/c83515e6-4483-4e17-b8c9-0f34907cd13a",
+        "summary": {
+          "recall": 0.219,
+          "precision": 0.54,
+          "f1": 0.283,
+          "recall_required": 0.1355,
+          "recall_document": 1.0,
+          "recall_field": 0.5,
+          "recall_downstream": 0.0,
+          "grade_correct": 0.9,
+          "classification_correct": 1.0,
+          "retrieval_recall": 1.0,
+          "latency_s": 4.332,
+          "tokens": 2419.3
+        },
+        "cases": [
+          {
+            "case_id": "case-01",
+            "recall": 0.25,
+            "precision": 0.2,
+            "f1": 0.2222,
+            "recall_required": 0.25,
+            "grade_correct": 0,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.75,
+            "tokens": 2512
+          },
+          {
+            "case_id": "case-02",
+            "recall": 0.25,
+            "precision": 0.25,
+            "f1": 0.25,
+            "recall_required": 0.25,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.58,
+            "tokens": 2415
+          },
+          {
+            "case_id": "case-03",
+            "recall": 0.125,
+            "precision": 1.0,
+            "f1": 0.2222,
+            "recall_required": 0.0,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 3.84,
+            "tokens": 2312
+          },
+          {
+            "case_id": "case-04",
+            "recall": 0.2222,
+            "precision": 0.5,
+            "f1": 0.3077,
+            "recall_required": 0.1429,
+            "recall_document": 1.0,
+            "recall_downstream": 0.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.17,
+            "tokens": 2396
+          },
+          {
+            "case_id": "case-05",
+            "recall": 0.125,
+            "precision": 0.25,
+            "f1": 0.1667,
+            "recall_required": 0.1667,
+            "recall_downstream": 0.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.16,
+            "tokens": 2410
+          },
+          {
+            "case_id": "case-06",
+            "recall": 0.375,
+            "precision": 0.6,
+            "f1": 0.4615,
+            "recall_required": 0.1667,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.11,
+            "tokens": 2411
+          },
+          {
+            "case_id": "case-07",
+            "recall": 0.25,
+            "precision": 0.5,
+            "f1": 0.3333,
+            "recall_required": 0.1429,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.44,
+            "tokens": 2399
+          },
+          {
+            "case_id": "case-08",
+            "recall": 0.1111,
+            "precision": 1.0,
+            "f1": 0.2,
+            "recall_required": 0.0,
+            "recall_document": 1.0,
+            "recall_field": 0.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.41,
+            "tokens": 2366
+          },
+          {
+            "case_id": "case-09",
+            "recall": 0.3,
+            "precision": 0.6,
+            "f1": 0.4,
+            "recall_required": 0.125,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.52,
+            "tokens": 2500
+          },
+          {
+            "case_id": "case-10",
+            "recall": 0.1818,
+            "precision": 0.5,
+            "f1": 0.2666,
+            "recall_required": 0.1111,
+            "recall_field": 1.0,
+            "recall_downstream": 0.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.34,
+            "tokens": 2472
+          }
+        ]
+      },
+      {
+        "profile": "improved",
+        "experiment": "4m-improved-9228a92d",
+        "url": "https://smith.langchain.com/o/8c12372e-69e4-4e7e-8599-78a72d4c74f3/projects/p/c05cbf29-061f-466e-b716-81fef0b9359e",
+        "summary": {
+          "recall": 1.0,
+          "precision": 0.9917,
+          "f1": 0.9957,
+          "recall_required": 1.0,
+          "recall_document": 1.0,
+          "recall_field": 1.0,
+          "recall_downstream": 1.0,
+          "grade_correct": 1.0,
+          "classification_correct": 1.0,
+          "retrieval_recall": 1.0,
+          "latency_s": 10.533,
+          "tokens": 3446.1
+        },
+        "cases": [
+          {
+            "case_id": "case-01",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 5.63,
+            "tokens": 3442
+          },
+          {
+            "case_id": "case-02",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 4.74,
+            "tokens": 3098
+          },
+          {
+            "case_id": "case-03",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 5.53,
+            "tokens": 3537
+          },
+          {
+            "case_id": "case-04",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "recall_document": 1.0,
+            "recall_downstream": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 5.96,
+            "tokens": 3559
+          },
+          {
+            "case_id": "case-05",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "recall_downstream": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 5.6,
+            "tokens": 3538
+          },
+          {
+            "case_id": "case-06",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 6.31,
+            "tokens": 3475
+          },
+          {
+            "case_id": "case-07",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 5.96,
+            "tokens": 3506
+          },
+          {
+            "case_id": "case-08",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "recall_document": 1.0,
+            "recall_field": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 5.71,
+            "tokens": 3679
+          },
+          {
+            "case_id": "case-09",
+            "recall": 1.0,
+            "precision": 1.0,
+            "f1": 1.0,
+            "recall_required": 1.0,
+            "recall_document": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 6.13,
+            "tokens": 3755
+          },
+          {
+            "case_id": "case-10",
+            "recall": 1.0,
+            "precision": 0.9167,
+            "f1": 0.9565,
+            "recall_required": 1.0,
+            "recall_field": 1.0,
+            "recall_downstream": 1.0,
+            "grade_correct": 1,
+            "classification_correct": 1,
+            "retrieval_recall": 1.0,
+            "latency_s": 53.76,
+            "tokens": 2872
+          }
+        ]
+      }
+    ]
+  ]
+}
