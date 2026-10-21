@@ -1,0 +1,82 @@
+{
+  "summary": {
+    "judge": "openai:gpt-4o",
+    "cases": 10,
+    "faithfulness_original": 0.9,
+    "faithfulness_corrupted": 0.25,
+    "detection_rate": 0.9,
+    "flag_rate": 1.0
+  },
+  "cases": [
+    {
+      "case_id": "case-01",
+      "original": 4,
+      "corrupted": 2,
+      "caught": true,
+      "flagged": true
+    },
+    {
+      "case_id": "case-02",
+      "original": 5,
+      "corrupted": 2,
+      "caught": true,
+      "flagged": true
+    },
+    {
+      "case_id": "case-03",
+      "original": 5,
+      "corrupted": 2,
+      "caught": true,
+      "flagged": true
+    },
+    {
+      "case_id": "case-04",
+      "original": 5,
+      "corrupted": 2,
+      "caught": true,
+      "flagged": true
+    },
+    {
+      "case_id": "case-05",
+      "original": 5,
+      "corrupted": 2,
+      "caught": true,
+      "flagged": true
+    },
+    {
+      "case_id": "case-06",
+      "original": 2,
+      "corrupted": 2,
+      "caught": false,
+      "flagged": true
+    },
+    {
+      "case_id": "case-07",
+      "original": 5,
+      "corrupted": 2,
+      "caught": true,
+      "flagged": true
+    },
+    {
+      "case_id": "case-08",
+      "original": 5,
+      "corrupted": 2,
+      "caught": true,
+      "flagged": true
+    },
+    {
+      "case_id": "case-09",
+      "original": 5,
+      "corrupted": 2,
+      "caught": true,
+      "flagged": true
+    },
+    {
+      "case_id": "case-10",
+      "original": 5,
+      "corrupted": 2,
+      "caught": true,
+      "flagged": true
+    }
+  ]
+}

@@ -10,6 +10,7 @@ Improved(전부 켬)를 같은 입력으로 실행해 LangSmith 실험으로 남
     .venv/bin/python3 eval/run_eval.py --profiles improved
     LLM_BACKEND=ollama .venv/bin/python3 eval/run_eval.py --runs 3         # 3회 반복 → 평균 ± 표준편차
     LLM_BACKEND=ollama .venv/bin/python3 eval/run_eval.py --dataset holdout # 홀드아웃 10건 (개발 중 미사용)
+    LLM_BACKEND=ollama .venv/bin/python3 eval/run_eval.py --judge          # + LLM-as-a-Judge (기본 gpt-4o)
 
 --runs N이면 같은 평가를 N번 돌려(회차마다 LangSmith 실험) 지표별 평균과 표준편차를 내고,
 eval/results/<백엔드>-<시각>.json에 회차별 결과와 함께 저장한다. LLM 출력은 매번 달라질 수
@@ -27,12 +28,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.config import Settings  # noqa: E402
 from app import evaluation  # noqa: E402
-from app.evaluation import METRIC_KEYS, EvaluationManager  # noqa: E402
+from app.evaluation import JUDGE_KEYS, METRIC_KEYS, EvaluationManager  # noqa: E402
 from app.langsmith_service import LangSmithService  # noqa: E402
 from app.runtime import AgentRuntime  # noqa: E402
 
 
-KEYS = METRIC_KEYS + ["latency_s", "tokens"]
+KEYS = METRIC_KEYS + JUDGE_KEYS + ["latency_s", "tokens"]
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 
 
@@ -50,6 +51,8 @@ def print_table(experiments: list[dict]) -> None:
     print(f"\n{'지표':24s}" + "".join(f"{e['profile']:>12s}" for e in experiments))
     for key in KEYS:
         values = [e["summary"].get(key) for e in experiments]
+        if all(v is None for v in values):
+            continue
         print(f"{key:24s}" + "".join(f"{'-' if v is None else round(v, 3):>12}" for v in values))
     for e in experiments:
         print(f"{e['profile']}: {e['url'] or e['experiment']}")
@@ -77,7 +80,8 @@ DATASETS = {
 }
 
 
-async def main(profiles: list[str], limit: int | None, runs: int, dataset: str = "dev") -> int:
+async def main(profiles: list[str], limit: int | None, runs: int, dataset: str = "dev",
+               use_judge: bool = False) -> int:
     name, path = DATASETS[dataset]
     evaluation.DATASET_NAME = name                       # LangSmith Dataset도 따로 둔다
     evaluation.load_cases = lambda: evaluation.load_cases_from(path)
@@ -86,11 +90,19 @@ async def main(profiles: list[str], limit: int | None, runs: int, dataset: str =
     if not langsmith.enabled:
         print("LangSmith 추적이 꺼져 있습니다 — .env를 불러온 뒤 실행하세요 (set -a; source .env; set +a)")
         return 1
+    judge_llm = None
+    if use_judge:
+        from eval.llm_judge import build_judge_llm
+        judge_llm = build_judge_llm()
+        if judge_llm is None:
+            print("LLM-as-a-Judge: OPENAI_API_KEY가 없습니다 (또는 JUDGE_MODEL=ollama:<모델>)")
+            return 1
+        print(f"LLM-as-a-Judge 평가 모델: {judge_llm.name}")
     runtime = AgentRuntime(settings)
     await runtime.start()
     results = []
     try:
-        manager = EvaluationManager(runtime, langsmith, runtime.reviews)
+        manager = EvaluationManager(runtime, langsmith, runtime.reviews, judge_llm=judge_llm)
         models = f"{runtime.deps.fast_llm.name} / {runtime.deps.quality_llm.name}"
         for i in range(1, runs + 1):
             print(f"[{i}/{runs}] 평가 시작 — 백엔드 {settings.llm_backend} ({models}), "
@@ -104,8 +116,8 @@ async def main(profiles: list[str], limit: int | None, runs: int, dataset: str =
     finally:
         await runtime.stop()
 
+    summary = aggregate(results, profiles)
     if runs > 1:
-        summary = aggregate(results, profiles)
         print(f"\n=== {runs}회 평균 ± 표준편차 ===")
         print(f"{'지표':24s}" + "".join(f"{p:>20s}" for p in profiles))
         for key in KEYS:
@@ -114,11 +126,13 @@ async def main(profiles: list[str], limit: int | None, runs: int, dataset: str =
                 m = summary[p]["metrics"].get(key)
                 cells.append("-" if m is None else f"{m['mean']:.3f} ± {m['std']:.3f}")
             print(f"{key:24s}" + "".join(f"{c:>20s}" for c in cells))
+    if runs > 1 or judge_llm:   # 반복 측정과 판사 평가는 결과 파일로 남긴다
         RESULTS_DIR.mkdir(exist_ok=True)
-        prefix = "" if dataset == "dev" else f"{dataset}-"
+        prefix = ("" if dataset == "dev" else f"{dataset}-") + ("judge-" if judge_llm else "")
         path = RESULTS_DIR / f"{prefix}{settings.llm_backend}-{datetime.now():%Y%m%d-%H%M}.json"
         path.write_text(json.dumps({
             "dataset": name, "llm_backend": settings.llm_backend, "models": models, "runs": runs,
+            "judge": judge_llm.name if judge_llm else None,
             "case_count": results[0]["case_count"], "summary": summary,
             "per_run": [r["experiments"] for r in results]}, ensure_ascii=False, indent=2))
         print(f"\n저장: {path.relative_to(RESULTS_DIR.parent.parent)}")
@@ -133,5 +147,7 @@ if __name__ == "__main__":
     parser.add_argument("--runs", type=int, default=1, help="반복 횟수 (2 이상이면 평균 ± 표준편차)")
     parser.add_argument("--dataset", choices=list(DATASETS), default="dev",
                         help="dev: 개발 데이터셋 10건, holdout: 개발 중 쓰지 않은 10건")
+    parser.add_argument("--judge", action="store_true",
+                        help="LLM-as-a-Judge로 보고서 근거 충실도·유용성도 채점 (JUDGE_MODEL, 기본 gpt-4o)")
     args = parser.parse_args()
-    sys.exit(asyncio.run(main(args.profiles, args.limit, args.runs, args.dataset)))
+    sys.exit(asyncio.run(main(args.profiles, args.limit, args.runs, args.dataset, args.judge)))

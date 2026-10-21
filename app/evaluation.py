@@ -4,6 +4,7 @@
 - 실험: 구성(profile)마다 aevaluate 실험 1개. 같은 서버의 MCP 연결·LLM을 쓰고, 기능 스위치만
   바꾼 그래프를 따로 만든다 (서버 설정은 그대로 둔다)
 - 평가자: eval/metrics.py의 채점 — recall, precision, f1, 층별 recall, 등급·분류 정확도
+  + 선택: LLM-as-a-Judge(eval/llm_judge.py) — 보고서 근거 충실도·실무 유용성 (judge_llm을 주면)
 - 실행 시간이 길어(실모델 10건 × 약 35초 × 구성 수) 백그라운드 작업으로 돌리고 진행률을 조회한다
 
 CLI(eval/run_eval.py)와 관리자 API(/api/v1/admin/evaluations)가 같은 EvaluationManager를 쓴다.
@@ -26,6 +27,7 @@ from langsmith import aevaluate
 
 from agent.deps import Features
 from agent.graph import build_graph
+from eval.llm_judge import make_evaluator, sources_text
 from eval.metrics import mean, score
 
 from .config import PROJECT_DIR
@@ -40,6 +42,7 @@ INTERRUPTED_MESSAGE = "서버가 재시작되어 평가가 중단되었습니다
 METRIC_KEYS = ["recall", "precision", "f1", "recall_required", "recall_document",
                "recall_field", "recall_downstream", "grade_correct", "classification_correct",
                "retrieval_recall"]
+JUDGE_KEYS = ["judge_faithfulness", "judge_usefulness"]
 
 
 def load_cases_from(path: Path) -> list[dict]:
@@ -104,8 +107,9 @@ EVALUATORS = [ev_recall, ev_precision, ev_f1, ev_layers, ev_grade, ev_classifica
 # ── 실행 관리 ────────────────────────────────────────────────────────────
 
 class EvaluationManager:
-    def __init__(self, runtime, langsmith: LangSmithService, store=None):
+    def __init__(self, runtime, langsmith: LangSmithService, store=None, judge_llm=None):
         self.runtime = runtime
+        self.judge_llm = judge_llm      # LLM-as-a-Judge 평가 모델 (None이면 규칙 채점만)
         self.langsmith = langsmith
         self.store = store              # 결과 영속화 (SqliteReviewStore.save_evaluation)
         self.jobs: dict[str, dict] = {}
@@ -162,7 +166,12 @@ class EvaluationManager:
                     "clauses_read": sum(len(d.get("clauses", []))
                                         for d in state.get("documents", []) if d.get("found")),
                     "latency_s": round(time.perf_counter() - started, 2),
-                    "tokens": state.get("tokens", 0)}
+                    "tokens": state.get("tokens", 0),
+                    # LLM-as-a-Judge 입력 — 최종 보고서와 시스템이 실제로 본 출처
+                    "report": state.get("final", ""),
+                    "sources": sources_text(state.get("documents", []),
+                                            state.get("findings", []),
+                                            state.get("checklist", []))}
         return target
 
     # 작업 ------------------------------------------------------------------
@@ -210,26 +219,35 @@ class EvaluationManager:
         examples = [ex for ex in await asyncio.to_thread(
             lambda: list(self.langsmith.client.list_examples(dataset_name=DATASET_NAME)))
             if ex.metadata.get("case_id") in case_ids]
+        evaluators = EVALUATORS + ([make_evaluator(self.judge_llm)] if self.judge_llm else [])
         results = await aevaluate(
-            self._target(profile), data=examples, evaluators=EVALUATORS,
+            self._target(profile), data=examples, evaluators=evaluators,
             experiment_prefix=f"4m-{profile}", max_concurrency=1,
             blocking=False,   # 끝날 때까지 기다리지 않고 1건씩 받아 진행률을 올린다
             metadata={"profile": profile, "features": dataclasses.asdict(PROFILES[profile]),
                       "llm_backend": self.runtime.settings.llm_backend,
                       "fast_llm": self.runtime.deps.fast_llm.name,
-                      "quality_llm": self.runtime.deps.quality_llm.name},
+                      "quality_llm": self.runtime.deps.quality_llm.name,
+                      "judge_llm": self.judge_llm.name if self.judge_llm else None},
             description=f"4M 검토 {profile} 구성 — 기능 스위치 {dataclasses.asdict(PROFILES[profile])}")
         rows = []
         async for row in results:
             scores = {r.key: r.score for r in row["evaluation_results"]["results"]}
             outputs = row["run"].outputs or {}
-            rows.append({"case_id": row["example"].metadata.get("case_id"), **scores,
-                         "latency_s": outputs.get("latency_s"), "tokens": outputs.get("tokens")})
+            case = {"case_id": row["example"].metadata.get("case_id"), **scores,
+                    "latency_s": outputs.get("latency_s"), "tokens": outputs.get("tokens")}
+            if self.judge_llm:   # 판사 근거와 채점 대상을 남겨 사람이 다시 확인할 수 있게
+                case["judge_comment"] = next((r.comment for r in row["evaluation_results"]["results"]
+                                              if r.key == "judge_faithfulness"), None)
+                case["request"] = row["example"].inputs.get("message")
+                case["report"], case["sources"] = outputs.get("report"), outputs.get("sources")
+            rows.append(case)
             job["progress"]["done"] += 1
             await self._persist(job)
         experiment_name = results.experiment_name
         url = await asyncio.to_thread(self._experiment_url, experiment_name)
-        summary = {k: mean([r.get(k) for r in rows]) for k in METRIC_KEYS}
+        keys = METRIC_KEYS + (JUDGE_KEYS if self.judge_llm else [])
+        summary = {k: mean([r.get(k) for r in rows]) for k in keys}
         summary["latency_s"] = mean([r["latency_s"] for r in rows])
         summary["tokens"] = mean([r["tokens"] for r in rows])
         return {"profile": profile, "experiment": experiment_name, "url": url,

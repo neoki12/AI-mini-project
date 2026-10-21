@@ -37,6 +37,8 @@ set -a; source .env; set +a
 LLM_BACKEND=ollama .venv/bin/python3 eval/run_eval.py --runs 3                     # 개발 데이터 10건 × 3회
 LLM_BACKEND=openai .venv/bin/python3 eval/run_eval.py --runs 3
 LLM_BACKEND=openai .venv/bin/python3 eval/run_eval.py --dataset holdout --runs 3   # 홀드아웃 10건
+LLM_BACKEND=ollama .venv/bin/python3 eval/run_eval.py --judge                      # + LLM-as-a-Judge (판사 gpt-4o)
+.venv/bin/python3 eval/judge_check.py eval/results/judge-ollama-<시각>.json         # 판사 민감도 점검
 LLM_BACKEND=fake   .venv/bin/python3 eval/run_eval.py --limit 3                    # LLM 없이 빠른 점검
 ```
 
@@ -52,6 +54,10 @@ LLM_BACKEND=fake   .venv/bin/python3 eval/run_eval.py --limit 3                 
   실행 전에 커밋으로 고정했고(`3aed1ad`), 결과를 본 뒤 시스템 코드는 고치지 않았다.
 - 홀드아웃에서 가장 큰 약점은 분류(차체 실러를 도장으로, 너트러너 교체의 Machine 누락)이며, 틀린 사례도 "검토 완료"로
   나갔다. 확신 있는 오답을 "추가 확인 필요"로 돌리는 것이 다음 과제다.
+- **LLM-as-a-Judge** (`eval/llm_judge.py`): 검토와 다른 모델(gpt-4o)이 보고서의 근거 충실도와 실무 유용성을 1~5점으로
+  채점한다. Ollama 개발 데이터에서 Baseline 0.70 / 0.75 → Improved 0.90 / 0.93 (`judge-ollama-20261021-1640.json`).
+  판사 검증: 지어낸 조항을 넣으면 0.90 → 0.25로 떨어지고 넣은 문장을 10건 모두 지목했다. 반면 판사가 정답 A등급(브레이크
+  안전 체결부)을 틀렸다고 본 오판도 1건 있어, 판사 점수는 규칙 채점을 보완하는 용도로만 쓴다.
 - 대가: 지연 Ollama 24.6 → 41.6초, OpenAI 4.3 → 9.0초, 토큰 약 1.5배. 자세한 내역은 [`doc/ROADMAP.md`](doc/ROADMAP.md).
 
 ## 구조
@@ -78,7 +84,7 @@ Vue 3 (frontend/)  ── REST /api/v1 · SSE ──▶  FastAPI (app/)
 | `app/` | FastAPI — 설정, 런타임, 라우터(health·chat·reviews·admin), 활동 로그, LangSmith 연동, 평가 |
 | `frontend/` | Vue 3 + Vite — 새 검토(실시간 활동 로그), 검토 상세·이력, 피드백, 관리자 |
 | `data/4m/` | 규칙표, 표준서 9개(조항 41개), 공정 흐름, 설비·라인 상태 |
-| `eval/` | 평가 데이터셋(개발 10건, 홀드아웃 10건)과 생성 스크립트, 채점 함수, 평가 CLI, 부하 테스트, 결과(`results/`) |
+| `eval/` | 평가 데이터셋(개발 10건, 홀드아웃 10건)과 생성 스크립트, 채점 함수, LLM-as-a-Judge, 평가 CLI, 부하 테스트, 결과(`results/`) |
 | `doc/` | [`ROADMAP.md`](doc/ROADMAP.md)(단계별 결과·실측), [`STREAMING.md`](doc/STREAMING.md)(SSE 이벤트 규격), [진행계획](doc/AI_Mini_Project_진행계획_4M_Agent.md) |
 
 ## 주요 API
