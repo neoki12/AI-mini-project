@@ -9,6 +9,7 @@ Improved(전부 켬)를 같은 입력으로 실행해 LangSmith 실험으로 남
     LLM_BACKEND=fake   .venv/bin/python3 eval/run_eval.py --limit 3        # 빠른 점검
     .venv/bin/python3 eval/run_eval.py --profiles improved
     LLM_BACKEND=ollama .venv/bin/python3 eval/run_eval.py --runs 3         # 3회 반복 → 평균 ± 표준편차
+    LLM_BACKEND=ollama .venv/bin/python3 eval/run_eval.py --dataset holdout # 홀드아웃 10건 (개발 중 미사용)
 
 --runs N이면 같은 평가를 N번 돌려(회차마다 LangSmith 실험) 지표별 평균과 표준편차를 내고,
 eval/results/<백엔드>-<시각>.json에 회차별 결과와 함께 저장한다. LLM 출력은 매번 달라질 수
@@ -25,6 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.config import Settings  # noqa: E402
+from app import evaluation  # noqa: E402
 from app.evaluation import METRIC_KEYS, EvaluationManager  # noqa: E402
 from app.langsmith_service import LangSmithService  # noqa: E402
 from app.runtime import AgentRuntime  # noqa: E402
@@ -69,7 +71,16 @@ def aggregate(runs: list[dict], profiles: list[str]) -> dict:
     return out
 
 
-async def main(profiles: list[str], limit: int | None, runs: int) -> int:
+DATASETS = {
+    "dev": ("4m-review-eval", Path(__file__).resolve().parent / "4m_dataset.jsonl"),
+    "holdout": ("4m-review-holdout", Path(__file__).resolve().parent / "4m_holdout.jsonl"),
+}
+
+
+async def main(profiles: list[str], limit: int | None, runs: int, dataset: str = "dev") -> int:
+    name, path = DATASETS[dataset]
+    evaluation.DATASET_NAME = name                       # LangSmith Dataset도 따로 둔다
+    evaluation.load_cases = lambda: evaluation.load_cases_from(path)
     settings = Settings.from_env()
     langsmith = LangSmithService(settings.langsmith_project)
     if not langsmith.enabled:
@@ -104,9 +115,10 @@ async def main(profiles: list[str], limit: int | None, runs: int) -> int:
                 cells.append("-" if m is None else f"{m['mean']:.3f} ± {m['std']:.3f}")
             print(f"{key:24s}" + "".join(f"{c:>20s}" for c in cells))
         RESULTS_DIR.mkdir(exist_ok=True)
-        path = RESULTS_DIR / f"{settings.llm_backend}-{datetime.now():%Y%m%d-%H%M}.json"
+        prefix = "" if dataset == "dev" else f"{dataset}-"
+        path = RESULTS_DIR / f"{prefix}{settings.llm_backend}-{datetime.now():%Y%m%d-%H%M}.json"
         path.write_text(json.dumps({
-            "llm_backend": settings.llm_backend, "models": models, "runs": runs,
+            "dataset": name, "llm_backend": settings.llm_backend, "models": models, "runs": runs,
             "case_count": results[0]["case_count"], "summary": summary,
             "per_run": [r["experiments"] for r in results]}, ensure_ascii=False, indent=2))
         print(f"\n저장: {path.relative_to(RESULTS_DIR.parent.parent)}")
@@ -119,5 +131,7 @@ if __name__ == "__main__":
                         choices=["baseline", "improved"])
     parser.add_argument("--limit", type=int, default=None, help="앞에서부터 N건만")
     parser.add_argument("--runs", type=int, default=1, help="반복 횟수 (2 이상이면 평균 ± 표준편차)")
+    parser.add_argument("--dataset", choices=list(DATASETS), default="dev",
+                        help="dev: 개발 데이터셋 10건, holdout: 개발 중 쓰지 않은 10건")
     args = parser.parse_args()
-    sys.exit(asyncio.run(main(args.profiles, args.limit, args.runs)))
+    sys.exit(asyncio.run(main(args.profiles, args.limit, args.runs, args.dataset)))

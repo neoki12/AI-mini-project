@@ -42,8 +42,12 @@ METRIC_KEYS = ["recall", "precision", "f1", "recall_required", "recall_document"
                "retrieval_recall"]
 
 
-def load_cases(path: Path = DATASET_PATH) -> list[dict]:
+def load_cases_from(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+
+
+def load_cases(path: Path = DATASET_PATH) -> list[dict]:
+    return load_cases_from(path)
 
 
 # ── 평가자 (inputs/outputs/reference_outputs 형식) ───────────────────────
